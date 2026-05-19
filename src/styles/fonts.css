@@ -1,0 +1,8 @@
+/* Font imports for GT Walsheim Pro with General Sans fallback */
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap');
+
+/* GT Walsheim Pro fallback — uses General Sans as proxy if Walsheim Pro is not licensed/installed.
+   To use the real face, drop GTWalsheimPro-{Regular,Medium,Bold}.woff2 into /fonts and uncomment below. */
+/* @font-face { font-family: "GT Walsheim Pro"; src: url("fonts/GTWalsheimPro-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; } */
+/* @font-face { font-family: "GT Walsheim Pro"; src: url("fonts/GTWalsheimPro-Medium.woff2")  format("woff2"); font-weight: 500; font-style: normal; font-display: swap; } */
+/* @font-face { font-family: "GT Walsheim Pro"; src: url("fonts/GTWalsheimPro-Bold.woff2")    format("woff2"); font-weight: 700; font-style: normal; font-display: swap; } */
