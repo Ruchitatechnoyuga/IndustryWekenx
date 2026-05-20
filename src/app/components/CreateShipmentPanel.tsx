@@ -160,69 +160,29 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
   };
 
   return (
-    <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(30, 34, 56, 0.4)",
-      backdropFilter: "blur(3px)",
-      zIndex: 1000,
-      display: "flex",
-      justifyContent: "flex-end"
-    }}>
-      {/* Panel Body */}
-      <div style={{
-        width: "480px",
-        maxWidth: "100%",
-        height: "100%",
-        background: "white",
-        boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
-        display: "flex",
-        flexDirection: "column",
-        position: "relative"
-      }}>
+    <div className="modal-overlay" onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15, 23, 42, 0.3)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, width: 600, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.15)", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "90vh" }}>
         {/* Header */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "20px 24px",
-          borderBottom: "1px solid var(--border)",
-          background: "#ffffff"
-        }}>
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy-deep)", margin: 0 }}>Create Shipment</h2>
+            <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Create Shipment</h2>
             <div style={{ fontSize: "12px", color: "var(--text-subtle)", marginTop: "2px" }}>Add a new shipment to dispatch board</div>
           </div>
-          <button 
-            onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              padding: "4px",
-              display: "grid",
-              placeItems: "center",
-              borderRadius: "50%"
-            }}
-            onMouseOver={e => e.currentTarget.style.background = "#f1f3f5"}
-            onMouseOut={e => e.currentTarget.style.background = "transparent"}
-          >
-            <Icon name="x" size={20} />
-          </button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}><Icon name="x" size={18} /></button>
         </div>
 
         {/* Form Container */}
         <form onSubmit={handleSubmit} style={{
           flex: 1,
           overflowY: "auto",
-          padding: "24px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "18px"
+          padding: 24,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 14
         }}>
           {errorMsg && (
             <div style={{
+              gridColumn: "1/-1",
               background: "#FEF2F2",
               border: "1px solid #FCA5A5",
               color: "#DC2626",
@@ -236,13 +196,12 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           )}
 
           {/* 1. Customer Searchable Dropdown */}
-          <div ref={dropdownRef} style={{ position: "relative" }}>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Customer <span style={{ color: "var(--red)" }}>*</span>
-            </label>
+          <div ref={dropdownRef} className="field" style={{ gridColumn: "1/-1", position: "relative" }}>
+            <label>Customer *</label>
             <div style={{ position: "relative" }}>
               <input
                 type="text"
+                className="input"
                 value={customerSearch}
                 onChange={(e) => {
                   setCustomerSearch(e.target.value);
@@ -304,13 +263,12 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 2. Site */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Site / Delivery Location <span style={{ color: "var(--red)" }}>*</span>
-            </label>
+          <div className="field" style={{ gridColumn: "1/-1" }}>
+            <label>Site / Delivery Location *</label>
             {selectedCustomer ? (
               customerSites.length > 0 ? (
                 <select
+                  className="select"
                   value={siteName}
                   onChange={(e) => {
                     const selectedSite = customerSites.find(s => s.name === e.target.value);
@@ -345,6 +303,7 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
             ) : (
               <select
                 disabled
+                className="select"
                 style={{
                   width: "100%",
                   padding: "9px 12px",
@@ -362,11 +321,10 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 3. Product */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Product <span style={{ color: "var(--red)" }}>*</span>
-            </label>
+          <div className="field">
+            <label>Product *</label>
             <select
+              className="select"
               value={productName}
               onChange={(e) => setProductName(e.target.value)}
               style={{
@@ -395,10 +353,8 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 4. Quantity */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Quantity <span style={{ color: "var(--red)" }}>*</span>
-            </label>
+          <div className="field">
+            <label>Quantity *</label>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <button
                 type="button"
@@ -420,6 +376,7 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
               <div style={{ position: "relative", flex: 1 }}>
                 <input
                   type="number"
+                  className="input"
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, +e.target.value))}
                   style={{
@@ -466,12 +423,11 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 5. Pallet Type */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "4px" }}>
-              Pallet Type
-            </label>
+          <div className="field">
+            <label>Pallet Type</label>
             <input
               type="text"
+              className="input"
               value={palletType}
               onChange={(e) => setPalletType(e.target.value)}
               placeholder="e.g. Standard Pallet"
@@ -499,11 +455,9 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 6. Delivery Date */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Delivery Date <span style={{ color: "var(--red)" }}>*</span>
-            </label>
-            <div style={{ display: "flex", background: "#f1f3f5", padding: "3px", borderRadius: "8px", marginBottom: "8px" }}>
+          <div className="field">
+            <label>Delivery Date *</label>
+            <div style={{ display: "flex", background: "#f1f3f5", padding: "3px", borderRadius: "8px", marginBottom: deliveryDate === "Custom" ? "4px" : "0" }}>
               {["Today", "Tomorrow", "Custom"].map(option => (
                 <button
                   key={option}
@@ -531,6 +485,7 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
             {deliveryDate === "Custom" && (
               <input
                 type="date"
+                className="input"
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
                 style={{
@@ -548,10 +503,8 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 7. Time Window */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Time Window
-            </label>
+          <div className="field">
+            <label>Time Window</label>
             <div style={{ display: "flex", gap: "8px" }}>
               {["Morning", "Afternoon", "Any"].map(win => (
                 <button
@@ -578,10 +531,8 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 8. Priority */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Priority
-            </label>
+          <div className="field">
+            <label>Priority</label>
             <div style={{ display: "flex", gap: "8px" }}>
               {[
                 { name: "Normal", color: "var(--text-subtle)", bg: "white", activeBg: "#F1F2F4", activeBorder: "#9ca3af" },
@@ -615,11 +566,10 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 9. Assign Driver */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Assign Driver (Optional)
-            </label>
+          <div className="field">
+            <label>Assign Driver (Optional)</label>
             <select
+              className="select"
               value={driverId}
               onChange={(e) => setDriverId(e.target.value)}
               style={{
@@ -645,12 +595,11 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 10. PO Number */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              PO Number (Optional)
-            </label>
+          <div className="field">
+            <label>PO Number (Optional)</label>
             <input
               type="text"
+              className="input"
               value={poNumber}
               onChange={(e) => setPoNumber(e.target.value)}
               placeholder="e.g. PO-44821"
@@ -669,11 +618,10 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
           </div>
 
           {/* 11. Special Instructions */}
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
-              Special Instructions (Optional)
-            </label>
+          <div className="field" style={{ gridColumn: "1/-1" }}>
+            <label>Special Instructions (Optional)</label>
             <textarea
+              className="input"
               value={specialInstructions}
               onChange={(e) => setSpecialInstructions(e.target.value)}
               placeholder="Instructions for driver or warehouse staff..."
@@ -696,54 +644,14 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
 
         {/* Footer Actions */}
         <div style={{
-          padding: "16px 24px",
+          padding: "14px 24px",
           borderTop: "1px solid var(--border)",
-          background: "#FAF9FB",
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center"
+          justifyContent: "flex-end",
+          gap: 8
         }}>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: "white",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              padding: "9px 20px",
-              fontSize: "13.5px",
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              cursor: "pointer"
-            }}
-            onMouseOver={e => e.currentTarget.style.background = "#f1f3f5"}
-            onMouseOut={e => e.currentTarget.style.background = "white"}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            style={{
-              background: "var(--navy-deep)",
-              color: "white",
-              border: "none",
-              borderRadius: "6px",
-              padding: "9px 24px",
-              fontSize: "13.5px",
-              fontWeight: 700,
-              cursor: submitting ? "not-allowed" : "pointer",
-              boxShadow: "0 2px 6px rgba(30, 34, 56, 0.15)"
-            }}
-            onMouseOver={e => {
-              if (!submitting) e.currentTarget.style.background = "var(--blue-hover)";
-            }}
-            onMouseOut={e => {
-              if (!submitting) e.currentTarget.style.background = "var(--navy-deep)";
-            }}
-          >
-            {submitting ? "Creating..." : "Create Shipment"}
-          </button>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={handleSubmit} disabled={submitting}>{submitting ? "Creating..." : "Create Shipment"}</button>
         </div>
       </div>
     </div>
