@@ -1,0 +1,16 @@
+node_modules/
+**/node_modules/
+
+dist/
+**/dist/
+
+build/
+
+.env
+.env.local
+.vercel
+
+# SQLite database files (do not commit these)
+*.db
+*.db-shm
+*.db-wal
