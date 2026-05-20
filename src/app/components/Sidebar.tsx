@@ -4,6 +4,8 @@ const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dispatch Board", icon: "grid" },
   { id: "active-routes", label: "Shipment", icon: "truck" },
   { id: "route-planner", label: "Route Planning", icon: "map" },
+  { id: "customers", label: "Customers & Sites", icon: "building" },
+  { id: "drivers", label: "Drivers & Vehicles", icon: "users" },
   { id: "products", label: "Product Setup", icon: "clipboard" },
   { id: "reports", label: "Analytics", icon: "chart" },
   { id: "invoices", label: "Invoices", icon: "invoice" },
@@ -14,13 +16,13 @@ const SIDEBAR_ITEMS = [
 
 export const Sidebar = ({ current, onNav }: { current: string; onNav: (route: string) => void }) => (
   <div className="sidebar" style={{ display: "flex", flexDirection: "column", height: "100%", padding: "20px 16px" }}>
-    {/* ArcticStream Branding */}
+    {/* Wekenx Branding */}
     <div style={{
       padding: "0 4px",
       marginBottom: "28px"
     }}>
-      <div style={{ fontWeight: 700, fontSize: "18px", color: "var(--navy)", letterSpacing: "-0.02em", lineHeight: "1.2" }}>ArcticStream</div>
-      <div style={{ fontSize: "11px", color: "var(--text-subtle)", marginTop: "2px", fontWeight: 500 }}>Ice & Fuel Distribution</div>
+      <div style={{ fontWeight: 700, fontSize: "18px", color: "var(--navy)", letterSpacing: "-0.02em", lineHeight: "1.2" }}>Wekenx</div>
+      <div style={{ fontSize: "11px", color: "var(--text-subtle)", marginTop: "2px", fontWeight: 500 }}>Stock Industry</div>
     </div>
 
     {/* Navigation Links */}

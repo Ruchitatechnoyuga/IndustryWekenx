@@ -81,8 +81,10 @@ export const routesApi = {
   create:       (data: Partial<Route>) => post<{ id: string }>("/routes", data),
   publish:      (route_ids: string[]) => post<{ published: number }>("/routes/publish", { route_ids }),
   suggest:      ()               => post<RouteSuggestion>("/routes/suggest", {}),
-  updateStop:   (routeId: string, stopId: number, status: string) =>
-    patch<StopUpdateResult>(`/routes/${routeId}/stops/${stopId}`, { status }),
+  updateStop:   (routeId: string, stopId: number, data: { status: string }) =>
+    patch<StopUpdateResult>(`/routes/${routeId}/stops/${stopId}`, data),
+  updateStatus: (id: string, status: "planned" | "active" | "completed" | "cancelled") =>
+    patch<{ updated: boolean }>(`/routes/${id}/status`, { status }),
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -102,6 +104,7 @@ export const productsApi = {
 
 export const palletsApi = {
   list:   ()              => get<Pallet[]>("/pallets"),
+  create: (data: Partial<Pallet>) => post<{ id: string }>("/pallets", data),
   update: (id: string, data: Partial<Pallet>) => put<{ updated: boolean }>(`/pallets/${id}`, data),
 };
 
@@ -242,8 +245,9 @@ export interface InvoiceItem {
   quantity: number; unit_price: number; line_total: number;
 }
 export interface InvoiceSummary {
-  outstanding: number; overdue: number; last_30_days: number;
-  total_count: number; total_paid: number;
+  total_outstanding: number; total_overdue: number; last_30_days: number;
+  invoice_count: number; paid_count: number; overdue_count: number;
+  pending_count: number; draft_count: number;
 }
 export interface Fridge {
   id: string; customer: string; branch: string; label: string; room: string;
@@ -306,6 +310,16 @@ export interface Shipment {
   created_at: string;
   updated_at: string;
 }
+
+export interface Vehicle {
+  id: string; code: string; type: string; capacity: number; status: string;
+}
+export const vehiclesApi = {
+  list:   ()              => get<Vehicle[]>("/vehicles"),
+  create: (data: Partial<Vehicle>) => post<{ id: string }>("/vehicles", data),
+  update: (id: string, data: Partial<Vehicle>) => put<{ updated: boolean }>(`/vehicles/${id}`, data),
+  remove: (id: string)    => del<{ deleted: boolean }>(`/vehicles/${id}`),
+};
 
 export const shipmentsApi = {
   list:   (status?: string) => get<Shipment[]>(`/shipments${status ? `?status=${status}` : ""}`),

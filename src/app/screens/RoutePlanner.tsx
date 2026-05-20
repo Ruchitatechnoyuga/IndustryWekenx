@@ -1,41 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "../components/Icon";
-import { SITES, DRIVERS } from "../components/data";
 import { StatusChip } from "../components/StatusChip";
 import { VariationBar } from "../components/VariationBar";
+import { driversApi, sitesApi, routesApi, type Driver, type Site, type Route } from "../services/api";
 
 export const RoutePlanner = () => {
   const [variant, setVariant] = useState(0);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [d, s, r] = await Promise.all([driversApi.list(), sitesApi.list(), routesApi.list()]);
+      setDrivers(d);
+      setSites(s);
+      setRoutes(r);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const availableDrivers = drivers.filter(d => d.availability === "available");
+  const urgentSites = sites.filter(s => s.status === "red" || s.status === "orange");
+  const publishedRoutes = routes.filter(r => r.status === "planned");
 
   return (
     <div className="page">
-      <div className="breadcrumbs">
-        <span>Daily Ops</span>
-        <span className="here">Route Planner</span>
-      </div>
+      <div className="breadcrumbs"><span>Daily Ops</span><span className="here">Route Planner</span></div>
       <div className="page-head">
         <div>
           <h1>
             Route planner{" "}
             <span className="chip blue" style={{ marginLeft: 8, verticalAlign: "middle" }}>
-              <Icon name="sparkles" size={10} />
-              AI-assisted
+              <Icon name="sparkles" size={10} /> AI-assisted
             </span>
           </h1>
           <div className="sub">
-            8 sites awaiting assignment · 5 drivers available (3 employees + 2 contractors) · AI has grouped into 3 suggested routes.
+            {loading ? "Loading data…" : `${urgentSites.length} sites needing delivery · ${availableDrivers.length} drivers available · ${publishedRoutes.length} planned routes`}
           </div>
         </div>
         <div className="actions">
-          <button className="btn">
-            <Icon name="refresh" size={14} /> Recalculate
-          </button>
-          <button className="btn">
-            <Icon name="edit" size={14} /> Manual mode
-          </button>
-          <button className="btn primary">
-            <Icon name="send" size={14} /> Publish 3 routes
-          </button>
+          <button className="btn" onClick={loadData}><Icon name="refresh" size={14} /> Recalculate</button>
+          <button className="btn primary"><Icon name="send" size={14} /> Publish Routes</button>
         </div>
       </div>
 
@@ -47,101 +57,106 @@ export const RoutePlanner = () => {
         onChange={setVariant}
       />
 
-      {variant === 0 ? <PlannerA /> : <PlannerB />}
+      {variant === 0
+        ? <PlannerA drivers={drivers} sites={sites} routes={routes} loading={loading} onRefresh={loadData} />
+        : <PlannerB drivers={drivers} sites={sites} routes={routes} loading={loading} />}
     </div>
   );
 };
 
-const PlannerA = () => {
+// ── Planner A: Map View ───────────────────────────────────────────────────────
+const PlannerA = ({ drivers, sites, routes, loading, onRefresh }: { drivers: Driver[]; sites: Site[]; routes: Route[]; loading: boolean; onRefresh: () => void }) => {
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
-  const availableDrivers = DRIVERS.filter(d => d.availability === "available");
-  const unavailableDrivers = DRIVERS.filter(d => d.availability !== "available");
+  const [selectedRoute, setSelectedRoute] = useState<Route | null>(routes[0] ?? null);
+  const [showCreateRoute, setShowCreateRoute] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
-  const stops = [
-    { id: "S-2044", name: "Coles Express — Miranda", status: "red" as const, eta: "11:20", bags: 448, route: "RT-101" },
-    { id: "S-1198", name: "BP Roadhouse — Port Kembla", status: "red" as const, eta: "12:45", bags: 624, route: "RT-101" },
-    { id: "S-8055", name: "Shell Coles — Albion Park", status: "orange" as const, eta: "14:30", bags: 216, route: "RT-101" },
-    { id: "S-4809", name: "Ampol — Warrawong", status: "orange" as const, eta: "15:25", bags: 188, route: "RT-101" },
-    { id: "S-3021", name: "IGA — Bulli", status: "orange" as const, eta: "10:40", bags: 218, route: "RT-102" },
-    { id: "S-5502", name: "7-Eleven — Figtree", status: "green" as const, eta: "12:00", bags: 0, route: null },
-  ];
+  const handleConfirmRoute = async (route: Route | null) => {
+    if (!route) return;
+    setConfirming(true);
+    try {
+      await routesApi.updateStatus(route.id, "active");
+      if (route.driver_id) {
+        await driversApi.updateAvailability(route.driver_id, "on-route", route.id);
+      }
+      alert(`Route ${route.id} successfully confirmed! Truck ${route.truck || ""} is now active and on route. 🚚`);
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to confirm route:", err);
+      alert("Failed to confirm route. Please try again.");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const availableDrivers = drivers.filter(d => d.availability === "available");
+  const unavailableDrivers = drivers.filter(d => d.availability !== "available");
+
+  useEffect(() => { if (routes.length > 0) setSelectedRoute(routes[0]); }, [routes]);
+
+  const certStr = (driver: Driver) => {
+    if (!driver.certifications) return "";
+    if (Array.isArray(driver.certifications)) return driver.certifications.join(", ");
+    try { return JSON.parse(driver.certifications as any).join(", "); } catch { return driver.certifications as any; }
+  };
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "300px 1fr 360px", gap: 16 }}>
-      {/* Available Drivers Panel */}
+      {/* Drivers Panel */}
       <div>
         <div className="card mb-2" style={{ alignSelf: "start" }}>
           <div className="card-head">
             <div>
               <h3>Available Drivers</h3>
-              <div className="sub">{availableDrivers.length} ready · From roster system</div>
+              <div className="sub">{availableDrivers.length} ready</div>
             </div>
           </div>
-          <div style={{ maxHeight: 400, overflowY: "auto" }}>
-            {availableDrivers.map((driver) => (
-              <div
-                key={driver.id}
-                onClick={() => setSelectedDriver(driver.id)}
-                style={{
-                  padding: "12px 16px",
-                  borderBottom: "1px solid var(--border)",
-                  cursor: "pointer",
-                  background: selectedDriver === driver.id ? "var(--blue-soft)" : undefined,
-                  borderLeft: selectedDriver === driver.id ? "3px solid var(--blue)" : "3px solid transparent"
-                }}
-              >
-                <div className="between">
-                  <div style={{ fontWeight: 500, fontSize: 13 }}>{driver.name}</div>
-                  <span className={`chip ${driver.type === "contractor" ? "orange" : "blue"}`} style={{ padding: "1px 6px", fontSize: 10 }}>
-                    {driver.type === "contractor" ? "Contractor" : "Employee"}
-                  </span>
-                </div>
-                <div className="small muted mt-1">
-                  <Icon name="clock" size={10} style={{ verticalAlign: "middle" }} /> {driver.shift}
-                </div>
-                <div className="small muted">
-                  <Icon name="truck" size={10} style={{ verticalAlign: "middle" }} /> {driver.truck} · {driver.certifications.join(", ")}
-                </div>
-                {driver.assigned && (
-                  <div className="mt-1">
-                    <span className="chip green" style={{ padding: "1px 6px", fontSize: 10 }}>
-                      ✓ Assigned to {driver.assigned}
+          {loading ? (
+            <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}>Loading…</div>
+          ) : availableDrivers.length === 0 ? (
+            <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}>No available drivers</div>
+          ) : (
+            <div style={{ maxHeight: 400, overflowY: "auto" }}>
+              {availableDrivers.map(driver => (
+                <div key={driver.id} onClick={() => setSelectedDriver(driver.id)}
+                  style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", cursor: "pointer",
+                    background: selectedDriver === driver.id ? "var(--blue-soft)" : undefined,
+                    borderLeft: selectedDriver === driver.id ? "3px solid var(--blue)" : "3px solid transparent" }}>
+                  <div className="between">
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{driver.name}</div>
+                    <span className={`chip ${driver.type === "contractor" ? "orange" : "blue"}`} style={{ padding: "1px 6px", fontSize: 10 }}>
+                      {driver.type === "contractor" ? "Contractor" : "Employee"}
                     </span>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  <div className="small muted mt-1"><Icon name="clock" size={10} style={{ verticalAlign: "middle" }} /> {driver.shift || "No shift set"}</div>
+                  <div className="small muted"><Icon name="truck" size={10} style={{ verticalAlign: "middle" }} /> {driver.truck || "No truck"} · {certStr(driver)}</div>
+                  {driver.assigned_route && (
+                    <div className="mt-1"><span className="chip green" style={{ padding: "1px 6px", fontSize: 10 }}>✓ Assigned to {driver.assigned_route}</span></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="card" style={{ alignSelf: "start" }}>
-          <div className="card-head">
-            <div>
-              <h3>Unavailable</h3>
-              <div className="sub">{unavailableDrivers.length} drivers</div>
+        {unavailableDrivers.length > 0 && (
+          <div className="card" style={{ alignSelf: "start" }}>
+            <div className="card-head"><div><h3>Unavailable</h3><div className="sub">{unavailableDrivers.length} drivers</div></div></div>
+            <div style={{ maxHeight: 200, overflowY: "auto" }}>
+              {unavailableDrivers.map(driver => (
+                <div key={driver.id} style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", opacity: 0.6 }}>
+                  <div className="between">
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{driver.name}</div>
+                    <span className={`chip ${driver.availability === "on-leave" ? "orange" : "grey"}`} style={{ padding: "1px 6px", fontSize: 10 }}>
+                      {driver.availability === "on-leave" ? "On Leave" : driver.availability === "on-route" ? "On Route" : "Unavailable"}
+                    </span>
+                  </div>
+                  <div className="small muted mt-1">{driver.shift || "—"}</div>
+                </div>
+              ))}
             </div>
           </div>
-          <div style={{ maxHeight: 200, overflowY: "auto" }}>
-            {unavailableDrivers.map((driver) => (
-              <div
-                key={driver.id}
-                style={{
-                  padding: "10px 16px",
-                  borderBottom: "1px solid var(--border)",
-                  opacity: 0.6
-                }}
-              >
-                <div className="between">
-                  <div style={{ fontWeight: 500, fontSize: 13 }}>{driver.name}</div>
-                  <span className={`chip ${driver.availability === "on-leave" ? "orange" : "grey"}`} style={{ padding: "1px 6px", fontSize: 10 }}>
-                    {driver.availability === "on-leave" ? "On Leave" : driver.availability === "on-route" ? "On Route" : "Off Roster"}
-                  </span>
-                </div>
-                <div className="small muted mt-1">{driver.shift}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Map View */}
@@ -149,162 +164,220 @@ const PlannerA = () => {
         <div className="card-head">
           <div>
             <h3>Route map · AI preview</h3>
-            <div className="sub">3 routes · 387 km · 11h 30m total</div>
-          </div>
-          <div className="row">
-            <div className="legend">
-              <span>
-                <span className="sw" style={{ background: "var(--blue)" }} />
-                RT-101 (Luka M.)
-              </span>
-              <span>
-                <span className="sw" style={{ background: "#a259ff" }} />
-                RT-102 (Priya S.)
-              </span>
-              <span>
-                <span className="sw" style={{ background: "#14b8a6" }} />
-                RT-103 (Unassigned)
-              </span>
-            </div>
+            <div className="sub">{routes.length} routes planned</div>
           </div>
         </div>
         <div className="map" style={{ height: 560 }}>
-          <svg
-            viewBox="0 0 400 560"
-            preserveAspectRatio="none"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-          >
-            <path
-              d="M 168 190 L 112 348 L 192 425 L 176 302"
-              stroke="var(--blue)"
-              strokeWidth="2.5"
-              strokeDasharray="6 4"
-              fill="none"
-            />
+          <svg viewBox="0 0 400 560" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            <path d="M 168 190 L 112 348 L 192 425 L 176 302" stroke="var(--blue)" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
             <path d="M 272 268 L 232 403" stroke="#a259ff" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
-            <path d="M 96 234 L 152 324" stroke="#14b8a6" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
           </svg>
-          {SITES.map((s) => (
-            <div key={s.id} className={`map-pin ${s.status}`} style={{ top: `${s.top}%`, left: `${s.left}%` }}>
+          {sites.map(s => (
+            <div key={s.id} className={`map-pin ${s.status}`} style={{ top: `${s.map_top ?? 50}%`, left: `${s.map_left ?? 50}%` }}>
               {s.id.slice(-2)}
             </div>
           ))}
-          <div className="map-pin truck" style={{ top: "22%", left: "12%" }}>
-            W
-          </div>
-          <div
-            style={{
-              position: "absolute",
-              top: 12,
-              right: 12,
-              background: "white",
-              borderRadius: 6,
-              padding: "8px 12px",
-              border: "1px solid var(--border)",
-              fontSize: 12,
-              boxShadow: "var(--shadow-sm)",
-            }}
-          >
+          <div className="map-pin truck" style={{ top: "22%", left: "12%" }}>W</div>
+          <div style={{ position: "absolute", top: 12, right: 12, background: "white", borderRadius: 6, padding: "8px 12px", border: "1px solid var(--border)", fontSize: 12, boxShadow: "var(--shadow-sm)" }}>
             <div className="small muted">Warehouse</div>
             <div style={{ fontWeight: 600 }}>Wollongong Depot</div>
+          </div>
+          {sites.length === 0 && !loading && (
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>
+              No sites added yet. Add customer sites to see map pins.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Route / Create Panel */}
+      <div className="card" style={{ alignSelf: "start" }}>
+        {routes.length === 0 ? (
+          <div className="card-body" style={{ textAlign: "center", padding: 32 }}>
+            <Icon name="route" size={32} style={{ color: "var(--text-muted)", marginBottom: 12 }} />
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>No routes planned yet</div>
+            <div className="small muted mb-2">Add drivers and sites, then create routes to plan deliveries.</div>
+            <button className="btn primary" style={{ width: "100%" }} onClick={() => setShowCreateRoute(true)}>
+              <Icon name="plus" size={14} /> Create Route
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="card-head">
+              <div>
+                <h3>{selectedRoute?.id || routes[0]?.id} · Route Details</h3>
+                <div className="sub">{selectedRoute?.stops_total || 0} stops · {selectedRoute?.distance_km || 0} km</div>
+              </div>
+              <span className="chip blue" style={{ padding: "1px 7px", fontSize: 11 }}><Icon name="sparkles" size={10} /> AI suggested</span>
+            </div>
+            <div className="card-body">
+              {routes.length > 1 && (
+                <div className="field mb-2">
+                  <select className="select" value={selectedRoute?.id || ""} onChange={e => setSelectedRoute(routes.find(r => r.id === e.target.value) || null)}>
+                    {routes.map(r => <option key={r.id} value={r.id}>{r.id} — {r.driver_name || "Unassigned"}</option>)}
+                  </select>
+                </div>
+              )}
+              {selectedRoute && (
+                <>
+                  <div className="grid-2 mb-2">
+                    <div>
+                      <div className="small muted">Driver</div>
+                      <div style={{ fontWeight: 500 }}>{selectedRoute.driver_name || "Unassigned"}</div>
+                    </div>
+                    <div>
+                      <div className="small muted">Truck</div>
+                      <div style={{ fontWeight: 500 }}>{selectedRoute.truck || "—"}</div>
+                    </div>
+                  </div>
+                  <div className="card mb-2" style={{ background: "var(--bg-soft)", border: "1px dashed var(--border)" }}>
+                    <div className="card-body" style={{ padding: 12 }}>
+                      <div className="between small mb-1">
+                        <span className="muted" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 11 }}>Truck utilisation</span>
+                        <span className="mono" style={{ fontWeight: 600 }}>{selectedRoute.utilisation}%</span>
+                      </div>
+                      <div className="bar"><div className="bar-fill" style={{ width: `${selectedRoute.utilisation}%` }} /></div>
+                      <div className="small muted mt-1">{selectedRoute.stops_done} of {selectedRoute.stops_total} stops complete</div>
+                    </div>
+                  </div>
+                  <div className="row mt-2" style={{ justifyContent: "flex-end", gap: 8 }}>
+                    <button className="btn primary" onClick={() => handleConfirmRoute(selectedRoute)} disabled={confirming || selectedRoute.status === "active"}>
+                      {confirming ? "Confirming..." : selectedRoute.status === "active" ? "Active" : "Confirm Route"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
+        {showCreateRoute && <CreateRouteModal drivers={drivers} onClose={() => setShowCreateRoute(false)} onSave={onRefresh} />}
+      </div>
+    </div>
+  );
+};
+
+// ── Planner B: Timeline View ──────────────────────────────────────────────────
+const PlannerB = ({ drivers, sites, routes, loading }: { drivers: Driver[]; sites: Site[]; routes: Route[]; loading: boolean }) => {
+  const timeSlots = ["6am", "8am", "10am", "12pm", "2pm", "4pm", "6pm", "8pm"];
+  const activeDrivers = drivers.filter(d => d.availability === "available" || d.availability === "on-route");
+  const offDrivers = drivers.filter(d => d.availability !== "available" && d.availability !== "on-route");
+  const urgentSites = sites.filter(s => s.status === "red" || s.status === "orange");
+  const routeColors = ["var(--blue)", "#a259ff", "#14b8a6", "#f59e0b", "#ef4444"];
+
+  return (
+    <div>
+      <div className="banner mb-2">
+        <Icon name="clock" size={14} />
+        <span><b>Timeline Scheduler</b> — Driver shifts and route assignments by time.</span>
+      </div>
+
+      <div className="card mb-2">
+        <div className="card-head">
+          <div><h3>Driver Roster & Shift Timeline</h3><div className="sub">Today's schedule</div></div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ minWidth: 1200 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "200px repeat(8, 1fr)", borderBottom: "1px solid var(--border)", background: "var(--bg-softer)" }}>
+              <div style={{ padding: "12px 16px", fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>Driver / Shift</div>
+              {timeSlots.map((time, i) => (
+                <div key={i} style={{ padding: "12px 8px", textAlign: "center", fontWeight: 500, fontSize: 12, borderLeft: "1px solid var(--border)" }}>{time}</div>
+              ))}
+            </div>
+
+            {loading ? (
+              <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)" }}>Loading drivers…</div>
+            ) : activeDrivers.length === 0 ? (
+              <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)" }}>No active drivers. Add drivers first.</div>
+            ) : activeDrivers.map((driver, dIdx) => {
+              const driverRoute = routes.find(r => r.driver_id === driver.id);
+              const shiftStart = driver.shift?.toLowerCase().includes("morning") ? 0
+                : driver.shift?.toLowerCase().includes("afternoon") ? 4 : 1;
+              const shiftDur = 4;
+              return (
+                <div key={driver.id} style={{ display: "grid", gridTemplateColumns: "200px repeat(8, 1fr)", borderBottom: "1px solid var(--border)", minHeight: 80 }}>
+                  <div style={{ padding: "14px 16px", borderRight: "1px solid var(--border)" }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{driver.name}</div>
+                    <div className="row mt-1" style={{ gap: 4 }}>
+                      <span className={`chip ${driver.type === "contractor" ? "orange" : "blue"}`} style={{ padding: "1px 5px", fontSize: 10 }}>{driver.type === "contractor" ? "Contractor" : "Employee"}</span>
+                      <span className={`chip ${driver.availability === "available" ? "green" : "grey"}`} style={{ padding: "1px 5px", fontSize: 10 }}>{driver.availability === "available" ? "Available" : "On Route"}</span>
+                    </div>
+                    <div className="small muted mt-1"><Icon name="truck" size={10} style={{ verticalAlign: "middle" }} /> {driver.truck || "—"}</div>
+                  </div>
+                  <div style={{ gridColumn: "2 / -1", position: "relative", display: "grid", gridTemplateColumns: "repeat(8, 1fr)" }}>
+                    <div style={{ position: "absolute", left: `${(shiftStart / 8) * 100}%`, width: `${(shiftDur / 8) * 100}%`, height: "100%", background: "var(--bg-soft)", borderLeft: "2px solid var(--border-strong)", borderRight: "2px solid var(--border-strong)", opacity: 0.5, pointerEvents: "none" }} />
+                    {driverRoute && (
+                      <div style={{ position: "absolute", left: `${(shiftStart / 8) * 100}%`, width: `${((driverRoute.stops_total || 2) / 8) * 100}%`, top: "50%", transform: "translateY(-50%)", height: "60%", background: routeColors[dIdx % routeColors.length], borderRadius: 6, padding: "8px 12px", color: "white", boxShadow: "var(--shadow-md)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <div style={{ fontWeight: 600, fontSize: 12 }}>{driverRoute.id}</div>
+                        <div style={{ fontSize: 10, opacity: 0.9, marginTop: 2 }}>{driverRoute.stops_total} stops · {driverRoute.distance_km} km</div>
+                      </div>
+                    )}
+                    {timeSlots.map((_, i) => <div key={i} style={{ borderLeft: i > 0 ? "1px solid var(--border)" : "none" }} />)}
+                  </div>
+                </div>
+              );
+            })}
+
+            {offDrivers.length > 0 && (
+              <div style={{ background: "var(--bg-soft)", padding: "12px 16px", borderTop: "2px solid var(--border)" }}>
+                <div className="between">
+                  <span className="small muted" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 11 }}>Unavailable Today · {offDrivers.length} drivers</span>
+                  <div className="row" style={{ gap: 8 }}>
+                    {offDrivers.map(d => (
+                      <span key={d.id} className="chip grey" style={{ padding: "2px 8px", fontSize: 11 }}>{d.name} ({d.availability === "on-leave" ? "Leave" : "Unavailable"})</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Route Details with Driver Info */}
-      <div className="card" style={{ alignSelf: "start" }}>
-        <div className="card-head">
-          <div>
-            <h3>RT-101 · Southside</h3>
-            <div className="sub">4 stops · 92 km · 3h 20m</div>
+      <div className="grid-2 mt-2" style={{ gap: 16 }}>
+        <div className="card">
+          <div className="card-head">
+            <div><h3>Unassigned Sites</h3><div className="sub">Sites needing delivery</div></div>
+            <span className="chip red">{urgentSites.length} urgent</span>
           </div>
-          <span className="chip blue" style={{ padding: "1px 7px", fontSize: 11 }}>
-            <Icon name="sparkles" size={10} />
-            AI suggested
-          </span>
-        </div>
-        <div className="card-body">
-          <div className="banner" style={{ marginBottom: 12, background: "var(--blue-soft)", borderColor: "#d4d8e6" }}>
-            <Icon name="users" size={14} />
-            <span><b>Driver assigned from roster:</b> Luka Martinovic (Contractor, Morning shift)</span>
-          </div>
-
-          <div className="grid-2 mb-2">
-            <div>
-              <div className="small muted">Driver</div>
-              <div style={{ fontWeight: 500 }}>
-                Luka Martinovic
-              </div>
-              <div className="row mt-1" style={{ gap: 4 }}>
-                <span className="chip orange" style={{ padding: "1px 6px", fontSize: 10 }}>Contractor</span>
-                <span className="chip green" style={{ padding: "1px 6px", fontSize: 10 }}>Available</span>
-              </div>
-            </div>
-            <div>
-              <div className="small muted">Shift & Truck</div>
-              <div style={{ fontWeight: 500 }}>Morning (6am-2pm)</div>
-              <div className="small muted mt-1">T-02 · HC License</div>
-            </div>
-          </div>
-
-          <div className="card mb-2" style={{ background: "var(--bg-soft)", border: "1px dashed var(--border)" }}>
-            <div className="card-body" style={{ padding: 12 }}>
-              <div className="between small mb-1">
-                <span className="muted" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 11 }}>
-                  Truck utilisation
-                </span>
-                <span className="mono" style={{ fontWeight: 600 }}>
-                  94%
-                </span>
-              </div>
-              <div className="bar">
-                <div className="bar-fill" style={{ width: "94%" }} />
-              </div>
-              <div className="small muted mt-1">14 of 15 pallets used · 1,476 bags total</div>
-            </div>
-          </div>
-
-          <div className="small muted mb-1" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 11 }}>
-            Stop sequence
-          </div>
-          {stops
-            .filter((s) => s.route === "RT-101")
-            .map((s, i) => (
-              <div
-                key={s.id}
-                style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--border)" }}
-              >
-                <div
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: "50%",
-                    background: `var(--${s.status === "red" ? "red" : "orange"})`,
-                    color: "white",
-                    display: "grid",
-                    placeItems: "center",
-                    fontSize: 11,
-                    fontWeight: 700,
-                  }}
-                >
-                  {i + 1}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
-                  <div className="small muted">
-                    ETA {s.eta} · {s.bags} bags
+          {urgentSites.length === 0 ? (
+            <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}>All sites are well-stocked!</div>
+          ) : (
+            <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {urgentSites.slice(0, 6).map(s => (
+                <div key={s.id} className={`site-card ${s.status}`} style={{ cursor: "grab" }}>
+                  <div className="between">
+                    <span className="mono subtle small">{s.id}</span>
+                    <StatusChip status={s.status} small />
                   </div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
+                  <div className="small muted">{s.suburb}</div>
                 </div>
-                <button className="btn ghost sm">
-                  <Icon name="dots" size={14} />
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
 
-          <div className="row mt-2" style={{ justifyContent: "flex-end", gap: 8 }}>
-            <button className="btn">Change Driver</button>
-            <button className="btn">Re-AI Route</button>
-            <button className="btn primary">Confirm RT-101</button>
+        <div className="card">
+          <div className="card-head"><div><h3>Route Statistics</h3><div className="sub">Current plan</div></div></div>
+          <div className="card-body">
+            <div className="grid-2" style={{ gap: 12 }}>
+              <div><div className="small muted">Total Routes</div><div style={{ fontSize: 20, fontWeight: 600 }} className="mono">{routes.length}</div></div>
+              <div><div className="small muted">Active Drivers</div><div style={{ fontSize: 20, fontWeight: 600 }} className="mono">{activeDrivers.length}</div></div>
+              <div><div className="small muted">Sites Urgent</div><div style={{ fontSize: 20, fontWeight: 600 }} className="mono">{urgentSites.length}</div></div>
+              <div><div className="small muted">Sites Total</div><div style={{ fontSize: 20, fontWeight: 600 }} className="mono">{sites.length}</div></div>
+            </div>
+            {activeDrivers.length > 0 && (
+              <>
+                <div className="divider" style={{ margin: "12px 0" }} />
+                <div className="banner" style={{ marginBottom: 0 }}>
+                  <Icon name="sparkles" size={14} />
+                  <span>AI suggests assigning available drivers to urgent sites first for optimal coverage.</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -312,232 +385,41 @@ const PlannerA = () => {
   );
 };
 
-const PlannerB = () => {
-  const timeSlots = ["6am", "8am", "10am", "12pm", "2pm", "4pm", "6pm", "8pm"];
+// ── Create Route Modal ────────────────────────────────────────────────────────
+const CreateRouteModal = ({ drivers, onClose, onSave }: { drivers: Driver[]; onClose: () => void; onSave: () => void }) => {
+  const availableDrivers = drivers.filter(d => d.availability === "available");
+  const [form, setForm] = useState({ driver_id: availableDrivers[0]?.id || "", truck: "", route_date: new Date().toISOString().split("T")[0] });
+  const [saving, setSaving] = useState(false);
 
-  const routes = [
-    {
-      id: "RT-101",
-      driver: DRIVERS.find(d => d.id === "DRV-001")!,
-      startTime: 2, // 10am
-      duration: 4, // 4 hours
-      stops: 4,
-      distance: "92 km",
-      sites: ["S-2044", "S-1198", "S-8055", "S-4809"],
-      color: "var(--blue)"
-    },
-    {
-      id: "RT-102",
-      driver: DRIVERS.find(d => d.id === "DRV-002")!,
-      startTime: 1, // 8am
-      duration: 5, // 5 hours
-      stops: 2,
-      distance: "118 km",
-      sites: ["S-3021", "S-5502"],
-      color: "#a259ff"
-    },
-  ];
+  const handleSave = async () => {
+    setSaving(true);
+    const driver = drivers.find(d => d.id === form.driver_id);
+    await routesApi.create({ driver_id: form.driver_id, truck: form.truck || driver?.truck || "", route_date: form.route_date, status: "planned" });
+    onSave();
+    onClose();
+  };
 
   return (
-    <div>
-      <div className="banner mb-2">
-        <Icon name="clock" size={14} />
-        <span>
-          <b>Timeline Scheduler</b> — View shows driver shifts and route assignments by time. Drag routes to reassign drivers or adjust timing.
-        </span>
-      </div>
-
-      {/* Header Row */}
-      <div className="card mb-2">
-        <div className="card-head">
-          <div>
-            <h3>Driver Roster & Shift Timeline</h3>
-            <div className="sub">Tuesday, 20 April 2026 · All times AEST</div>
-          </div>
-          <div className="row">
-            <div className="segmented">
-              <button className="seg active">Today</button>
-              <button className="seg">Tomorrow</button>
-              <button className="seg">Week View</button>
-            </div>
-          </div>
+    <div className="modal-overlay" onClick={onClose} style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,23,42,0.3)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000 }}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ background:"#fff",borderRadius:12,width:440,boxShadow:"0 25px 50px -12px rgba(0,0,0,0.15)",overflow:"hidden" }}>
+        <div style={{ padding:"16px 24px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <h2 style={{ fontSize:17,fontWeight:700,margin:0 }}>Create Route</h2>
+          <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer" }}><Icon name="x" size={18} /></button>
         </div>
-      </div>
-
-      {/* Timeline Grid */}
-      <div className="card">
-        <div style={{ overflowX: "auto" }}>
-          <div style={{ minWidth: 1200 }}>
-            {/* Time Header */}
-            <div style={{ display: "grid", gridTemplateColumns: "200px repeat(8, 1fr)", borderBottom: "1px solid var(--border)", background: "var(--bg-softer)" }}>
-              <div style={{ padding: "12px 16px", fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>
-                Driver / Shift
-              </div>
-              {timeSlots.map((time, i) => (
-                <div key={i} style={{ padding: "12px 8px", textAlign: "center", fontWeight: 500, fontSize: 12, borderLeft: "1px solid var(--border)" }}>
-                  {time}
-                </div>
-              ))}
-            </div>
-
-            {/* Driver Rows */}
-            {DRIVERS.filter(d => d.availability === "available" || d.availability === "on-route").map((driver) => {
-              const assignedRoute = routes.find(r => r.driver.id === driver.id);
-              const shiftStart = driver.shift.includes("Morning") ? 0 : driver.shift.includes("Afternoon") ? 4 : 1;
-              const shiftDuration = driver.shift.includes("Morning") ? 4 : driver.shift.includes("Afternoon") ? 4 : 4;
-
-              return (
-                <div key={driver.id} style={{ display: "grid", gridTemplateColumns: "200px repeat(8, 1fr)", borderBottom: "1px solid var(--border)", minHeight: 80 }}>
-                  {/* Driver Info */}
-                  <div style={{ padding: "14px 16px", borderRight: "1px solid var(--border)" }}>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{driver.name}</div>
-                    <div className="row mt-1" style={{ gap: 4 }}>
-                      <span className={`chip ${driver.type === "contractor" ? "orange" : "blue"}`} style={{ padding: "1px 5px", fontSize: 10 }}>
-                        {driver.type === "contractor" ? "Contractor" : "Employee"}
-                      </span>
-                      <span className={`chip ${driver.availability === "available" ? "green" : "grey"}`} style={{ padding: "1px 5px", fontSize: 10 }}>
-                        {driver.availability === "available" ? "Available" : "On Route"}
-                      </span>
-                    </div>
-                    <div className="small muted mt-1">
-                      <Icon name="truck" size={10} style={{ verticalAlign: "middle" }} /> {driver.truck}
-                    </div>
-                  </div>
-
-                  {/* Timeline Cells */}
-                  <div style={{ gridColumn: "2 / -1", position: "relative", display: "grid", gridTemplateColumns: "repeat(8, 1fr)" }}>
-                    {/* Shift Background */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: `${(shiftStart / 8) * 100}%`,
-                        width: `${(shiftDuration / 8) * 100}%`,
-                        height: "100%",
-                        background: "var(--bg-soft)",
-                        borderLeft: "2px solid var(--border-strong)",
-                        borderRight: "2px solid var(--border-strong)",
-                        opacity: 0.5,
-                        pointerEvents: "none"
-                      }}
-                    />
-
-                    {/* Route Bar */}
-                    {assignedRoute && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: `${(assignedRoute.startTime / 8) * 100}%`,
-                          width: `${(assignedRoute.duration / 8) * 100}%`,
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          height: "60%",
-                          background: assignedRoute.color,
-                          borderRadius: 6,
-                          padding: "8px 12px",
-                          color: "white",
-                          cursor: "grab",
-                          boxShadow: "var(--shadow-md)",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "center"
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, fontSize: 12 }}>{assignedRoute.id}</div>
-                        <div style={{ fontSize: 10, opacity: 0.9, marginTop: 2 }}>
-                          {assignedRoute.stops} stops · {assignedRoute.distance}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Grid Lines */}
-                    {timeSlots.map((_, i) => (
-                      <div key={i} style={{ borderLeft: i > 0 ? "1px solid var(--border)" : "none" }} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Unavailable Drivers (Collapsed View) */}
-            <div style={{ background: "var(--bg-soft)", padding: "12px 16px", borderTop: "2px solid var(--border)" }}>
-              <div className="between">
-                <div>
-                  <span className="small muted" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 11 }}>
-                    Unavailable Today
-                  </span>
-                  <span className="small muted" style={{ marginLeft: 12 }}>
-                    {DRIVERS.filter(d => d.availability !== "available" && d.availability !== "on-route").length} drivers
-                  </span>
-                </div>
-                <div className="row" style={{ gap: 8 }}>
-                  {DRIVERS.filter(d => d.availability !== "available" && d.availability !== "on-route").map(d => (
-                    <span key={d.id} className="chip grey" style={{ padding: "2px 8px", fontSize: 11 }}>
-                      {d.name} ({d.availability === "on-leave" ? "Leave" : "Off Roster"})
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+        <div style={{ padding:24,display:"flex",flexDirection:"column",gap:14 }}>
+          <div className="field">
+            <label>Assign Driver</label>
+            <select className="select" value={form.driver_id} onChange={e => setForm(p => ({ ...p, driver_id: e.target.value }))}>
+              {availableDrivers.length === 0 ? <option>No available drivers</option> : availableDrivers.map(d => <option key={d.id} value={d.id}>{d.name} — {d.truck || "No truck"}</option>)}
+            </select>
           </div>
+          <div className="field"><label>Truck (override)</label><input className="input" placeholder="Auto from driver" value={form.truck} onChange={e => setForm(p => ({ ...p, truck: e.target.value }))} /></div>
+          <div className="field"><label>Route Date</label><input className="input" type="date" value={form.route_date} onChange={e => setForm(p => ({ ...p, route_date: e.target.value }))} /></div>
+          <div className="banner" style={{ margin: 0 }}><Icon name="sparkles" size={14} /><span>Route stops are added in Active Routes after creation.</span></div>
         </div>
-      </div>
-
-      {/* Sites Awaiting Assignment */}
-      <div className="grid-2 mt-2" style={{ gap: 16 }}>
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <h3>Unassigned Sites</h3>
-              <div className="sub">Drag sites to driver timeline to create routes</div>
-            </div>
-            <span className="chip red">3 urgent</span>
-          </div>
-          <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {SITES.filter(s => s.status === "red" || s.status === "orange").slice(0, 6).map(s => (
-              <div key={s.id} className={`site-card ${s.status}`} style={{ cursor: "grab" }}>
-                <div className="between">
-                  <span className="mono subtle small">{s.id}</span>
-                  <StatusChip status={s.status} small />
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
-                <div className="small muted">{s.required} bags · {s.suburb}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <h3>Route Statistics</h3>
-              <div className="sub">AI-optimized assignments</div>
-            </div>
-          </div>
-          <div className="card-body">
-            <div className="grid-2" style={{ gap: 12 }}>
-              <div>
-                <div className="small muted">Total Distance</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }} className="mono">387 km</div>
-              </div>
-              <div>
-                <div className="small muted">Total Duration</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }} className="mono">11h 30m</div>
-              </div>
-              <div>
-                <div className="small muted">Routes Planned</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }} className="mono">2</div>
-              </div>
-              <div>
-                <div className="small muted">Avg Utilization</div>
-                <div style={{ fontSize: 20, fontWeight: 600 }} className="mono">88%</div>
-              </div>
-            </div>
-            <div className="divider" style={{ margin: "12px 0" }} />
-            <div className="banner" style={{ marginBottom: 0 }}>
-              <Icon name="sparkles" size={14} />
-              <span>AI suggests assigning <b>Devon Kim</b> or <b>Nina Patel</b> (afternoon shift) for RT-103 to cover western loop sites.</span>
-            </div>
-          </div>
+        <div style={{ padding:"14px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:8 }}>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={handleSave} disabled={saving || availableDrivers.length === 0}>{saving ? "Creating…" : "Create Route"}</button>
         </div>
       </div>
     </div>

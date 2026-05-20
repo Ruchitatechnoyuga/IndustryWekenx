@@ -270,6 +270,33 @@ try {
   // Column may already exist
 }
 
+// Add notes column to customers if not present
+try {
+  db.exec("ALTER TABLE customers ADD COLUMN notes TEXT;");
+} catch (e) {
+  // Column may already exist
+}
+
+// Add assigned_driver_name column to shipments if not present
+try {
+  db.exec("ALTER TABLE shipments ADD COLUMN assigned_driver_name TEXT;");
+} catch (e) {}
+
+// Vehicles table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS vehicles (
+    id       TEXT PRIMARY KEY,
+    code     TEXT UNIQUE,
+    type     TEXT DEFAULT 'Refrigerated Truck',
+    capacity INTEGER DEFAULT 100,
+    status   TEXT DEFAULT 'Active',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// No seed data — client adds all real data
+
 // ─── Export ───────────────────────────────────────────────────────────────────
 module.exports = db;
 

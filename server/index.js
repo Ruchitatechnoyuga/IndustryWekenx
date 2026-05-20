@@ -40,12 +40,12 @@ app.get("/api/customers/:id", (req, res) => {
 });
 
 app.post("/api/customers", (req, res) => {
-  const { id, name, po, hours, contact, phone } = req.body;
+  const { id, name, po, hours, contact, phone, notes } = req.body;
   if (!id || !name) return res.status(400).json({ error: "id and name are required" });
   try {
     db.prepare(
-      "INSERT INTO customers (id, name, po, hours, contact, phone) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(id, name, po || "", hours || "", contact || "", phone || "");
+      "INSERT INTO customers (id, name, po, hours, contact, phone, notes) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).run(id, name, po || "", hours || "", contact || "", phone || "", notes || "");
     res.status(201).json({ id });
   } catch (e) {
     res.status(409).json({ error: "Customer ID already exists" });
@@ -53,10 +53,10 @@ app.post("/api/customers", (req, res) => {
 });
 
 app.put("/api/customers/:id", (req, res) => {
-  const { name, po, hours, contact, phone } = req.body;
+  const { name, po, hours, contact, phone, notes } = req.body;
   const result = db.prepare(
-    "UPDATE customers SET name=?, po=?, hours=?, contact=?, phone=?, updated_at=datetime('now') WHERE id=?"
-  ).run(name, po, hours, contact, phone, req.params.id);
+    "UPDATE customers SET name=?, po=?, hours=?, contact=?, phone=?, notes=?, updated_at=datetime('now') WHERE id=?"
+  ).run(name, po, hours, contact, phone, notes || "", req.params.id);
   if (!result.changes) return res.status(404).json({ error: "Not found" });
   res.json({ updated: true });
 });
@@ -72,13 +72,13 @@ app.delete("/api/customers/:id", (req, res) => {
 
 app.get("/api/sites", (req, res) => {
   const { status } = req.query;
-  let query = "SELECT * FROM sites";
+  let query = "SELECT s.*, c.name as customer_name FROM sites s LEFT JOIN customers c ON s.customer_id = c.id";
   const params = [];
   if (status) {
-    query += " WHERE status = ?";
+    query += " WHERE s.status = ?";
     params.push(status);
   }
-  query += " ORDER BY CASE status WHEN 'red' THEN 1 WHEN 'orange' THEN 2 WHEN 'green' THEN 3 ELSE 4 END";
+  query += " ORDER BY CASE s.status WHEN 'red' THEN 1 WHEN 'orange' THEN 2 WHEN 'green' THEN 3 ELSE 4 END";
   const rows = db.prepare(query).all(...params);
   res.json(rows);
 });
@@ -136,6 +136,28 @@ app.patch("/api/sites/:id/stock", (req, res) => {
 
 app.delete("/api/sites/:id", (req, res) => {
   db.prepare("DELETE FROM sites WHERE id=?").run(req.params.id);
+  res.json({ deleted: true });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  VEHICLES
+// ═════════════════════════════════════════════════════════════════════════════
+app.get("/api/vehicles", (_req, res) => res.json(db.prepare("SELECT * FROM vehicles ORDER BY code").all()));
+app.post("/api/vehicles", (req, res) => {
+  const { id, code, type, capacity, status } = req.body;
+  try {
+    db.prepare("INSERT INTO vehicles (id,code,type,capacity,status) VALUES (?,?,?,?,?)").run(id||`V-${Date.now()}`, code, type||"Refrigerated Truck", capacity||100, status||"Active");
+    res.status(201).json({ id });
+  } catch(e) { res.status(409).json({ error: e.message }); }
+});
+app.put("/api/vehicles/:id", (req, res) => {
+  const { code, type, capacity, status } = req.body;
+  const r = db.prepare("UPDATE vehicles SET code=?,type=?,capacity=?,status=?,updated_at=datetime('now') WHERE id=?").run(code,type,capacity,status,req.params.id);
+  if (!r.changes) return res.status(404).json({ error:"Not found" });
+  res.json({ updated: true });
+});
+app.delete("/api/vehicles/:id", (req, res) => {
+  db.prepare("DELETE FROM vehicles WHERE id=?").run(req.params.id);
   res.json({ deleted: true });
 });
 
@@ -364,6 +386,15 @@ app.patch("/api/routes/:routeId/stops/:stopId", (req, res) => {
   res.json({ updated: true, stops_done: done.cnt, route_status: newStatus });
 });
 
+// Update route status manually (start, complete, cancel)
+app.patch("/api/routes/:id/status", (req, res) => {
+  const { status } = req.body;
+  const allowed = ["planned", "active", "completed", "cancelled"];
+  if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid status" });
+  db.prepare("UPDATE routes SET status=?, updated_at=datetime('now') WHERE id=?").run(status, req.params.id);
+  res.json({ updated: true });
+});
+
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  PRODUCTS
@@ -441,6 +472,15 @@ app.get("/api/pallets", (_req, res) => {
     return { ...p, products };
   });
   res.json(withProducts);
+});
+
+app.post("/api/pallets", (req, res) => {
+  const f = req.body;
+  const id = `PLT-${Date.now()}`;
+  db.prepare(
+    "INSERT INTO pallets (id, type, code, capacity, dimensions, weight_kg, in_stock) VALUES (?,?,?,?,?,?,?)"
+  ).run(id, f.type || "", f.code || "", f.capacity || 0, f.dimensions || "", f.weight_kg || 0, f.in_stock || 0);
+  res.json({ id });
 });
 
 app.put("/api/pallets/:id", (req, res) => {
@@ -590,11 +630,14 @@ app.delete("/api/invoices/:id", (req, res) => {
 app.get("/api/invoices/stats/summary", (_req, res) => {
   const stats = db.prepare(`
     SELECT
-      SUM(CASE WHEN status != 'paid' THEN total ELSE 0 END) as outstanding,
-      SUM(CASE WHEN status = 'overdue'  THEN total ELSE 0 END) as overdue,
-      SUM(CASE WHEN invoice_date >= date('now','-30 days') THEN total ELSE 0 END) as last_30_days,
-      COUNT(*) as total_count,
-      SUM(CASE WHEN status='paid' THEN total ELSE 0 END) as total_paid
+      COALESCE(SUM(CASE WHEN status != 'paid' THEN total ELSE 0 END), 0)  as total_outstanding,
+      COALESCE(SUM(CASE WHEN status = 'overdue' THEN total ELSE 0 END), 0) as total_overdue,
+      COALESCE(SUM(CASE WHEN invoice_date >= date('now','-30 days') THEN total ELSE 0 END), 0) as last_30_days,
+      COUNT(*) as invoice_count,
+      COUNT(CASE WHEN status='paid' THEN 1 END)    as paid_count,
+      COUNT(CASE WHEN status='overdue' THEN 1 END)  as overdue_count,
+      COUNT(CASE WHEN status='pending' THEN 1 END)  as pending_count,
+      COUNT(CASE WHEN status='draft' THEN 1 END)    as draft_count
     FROM invoices
   `).get();
   res.json(stats);

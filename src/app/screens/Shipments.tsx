@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Icon } from "../components/Icon";
 import { StatusChip } from "../components/StatusChip";
 import { VariationBar } from "../components/VariationBar";
-import { ROUTES } from "../components/data";
-import { shipmentsApi, Customer, Site, Product, Driver, Shipment } from "../services/api";
+
+import { shipmentsApi, routesApi, Customer, Site, Product, Driver, Shipment, Route } from "../services/api";
 
 export const Shipments = () => {
   const [activeTab, setActiveTab] = useState<"all" | "live">("all");
@@ -535,6 +535,15 @@ const VerticalTimeline = ({ shipment }: { shipment: Shipment }) => {
 // Copied exactly from the original ActiveRoutes component to maintain its layout
 const LiveRoutesView = () => {
   const [variant, setVariant] = useState(0);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+
+  useEffect(() => {
+    routesApi.list().then(setRoutes).catch(console.error);
+    shipmentsApi.list().then(setShipments).catch(console.error);
+  }, []);
+
+  const activeRoutesCount = routes.filter(r => r.status === "active").length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "12px" }}>
@@ -548,7 +557,7 @@ const LiveRoutesView = () => {
             </span>
           </h2>
           <div className="sub" style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-            2 trucks on the road · auto-refreshing every 30s via native GPS geofencing
+            {activeRoutesCount} truck{activeRoutesCount === 1 ? "" : "s"} on the road · auto-refreshing every 30s via native GPS geofencing
           </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
@@ -569,118 +578,245 @@ const LiveRoutesView = () => {
         onChange={setVariant}
       />
 
-      {variant === 0 ? <TrackingA /> : <TrackingB />}
+      {variant === 0 ? <TrackingA routes={routes} shipments={shipments} /> : <TrackingB routes={routes} />}
     </div>
   );
 };
 
-const TrackingA = () => (
-  <div style={{ display: "grid", gridTemplateColumns: "280px 1fr 360px", gap: 16 }}>
-    <div className="card" style={{ alignSelf: "start" }}>
-      <div className="card-head">
-        <h3>Today's routes</h3>
-        <span className="chip">4</span>
+const TrackingA = ({ routes, shipments }: { routes: Route[]; shipments: Shipment[] }) => {
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [activeTruckPopup, setActiveTruckPopup] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (routes.length > 0 && !selectedRouteId) {
+      setSelectedRouteId(routes[0].id);
+    }
+  }, [routes, selectedRouteId]);
+
+  useEffect(() => {
+    function handleGlobalClick() {
+      setActiveTruckPopup(null);
+    }
+    window.addEventListener("click", handleGlobalClick);
+    return () => window.removeEventListener("click", handleGlobalClick);
+  }, []);
+
+  const selectedRoute = routes.find(r => r.id === selectedRouteId) || routes[0] || null;
+  const activeRoutes = routes.filter(r => r.status === "active");
+
+  const getLiveTruckPosition = (truckCode: string, index: number) => {
+    const positions = [
+      { top: "54%", left: "44%", labelTop: "48%", labelLeft: "46%" },
+      { top: "34%", left: "38%", labelTop: "28%", labelLeft: "40%" },
+      { top: "68%", left: "52%", labelTop: "62%", labelLeft: "54%" },
+      { top: "42%", left: "28%", labelTop: "36%", labelLeft: "30%" },
+    ];
+    return positions[index % positions.length];
+  };
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "280px 1fr 360px", gap: 16 }}>
+      <div className="card" style={{ alignSelf: "start" }}>
+        <div className="card-head">
+          <h3>Today's routes</h3>
+          <span className="chip">{routes.length}</span>
+        </div>
+        <div>
+          {routes.length === 0 ? (
+            <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No routes today</div>
+          ) : routes.map((r) => (
+            <div
+              key={r.id}
+              onClick={() => setSelectedRouteId(r.id)}
+              style={{
+                padding: "14px 16px",
+                borderBottom: "1px solid var(--border)",
+                cursor: "pointer",
+                background: selectedRoute?.id === r.id ? "var(--blue-soft)" : undefined,
+                borderLeft: selectedRoute?.id === r.id ? "3px solid var(--blue)" : "3px solid transparent",
+              }}
+            >
+              <div className="between">
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{r.id}</div>
+                <StatusChip status={r.status} small />
+              </div>
+              <div className="small muted mt-1">
+                {r.driver_name || "Unassigned"} · {r.truck || "—"}
+              </div>
+              <div className="row mt-1" style={{ gap: 6 }}>
+                <div className="bar" style={{ flex: 1 }}>
+                  <div className="bar-fill green" style={{ width: `${r.stops_total > 0 ? (r.stops_done / r.stops_total) * 100 : 0}%` }} />
+                </div>
+                <span className="small mono">
+                  {r.stops_done}/{r.stops_total}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-      <div>
-        {ROUTES.map((r, i) => (
+
+      <div className="card">
+        <div className="card-head">
+          <div>
+            <h3>
+              {selectedRoute?.id || "No Route Selected"} · {selectedRoute?.driver_name || "Unassigned"}{" "}
+              {selectedRoute && (
+                <span className={`chip ${selectedRoute.status === "active" ? "green" : "blue"}`} style={{ padding: "1px 7px", fontSize: 11, marginLeft: 6 }}>
+                  <span className="dot" />
+                  {selectedRoute.status === "active" ? "On route" : selectedRoute.status}
+                </span>
+              )}
+            </h3>
+            <div className="sub">
+              {selectedRoute ? `Stop ${selectedRoute.stops_done} of ${selectedRoute.stops_total} · ${selectedRoute.truck || "No truck"}` : "Select a route to view tracking details"}
+            </div>
+          </div>
+        </div>
+        <div className="map" style={{ height: 500 }}>
+          <svg
+            viewBox="0 0 400 500"
+            preserveAspectRatio="none"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          >
+            <path
+              d="M 48 110 L 168 170 L 112 310"
+              stroke="var(--text-muted)"
+              strokeWidth="2"
+              strokeDasharray="3 3"
+              fill="none"
+            />
+            <path d="M 112 310 L 192 380 L 176 270" stroke="var(--blue)" strokeWidth="2.5" fill="none" />
+            <circle cx="176" cy="270" r="28" fill="rgba(59, 65, 112, 0.08)" stroke="var(--blue)" strokeDasharray="4 4" />
+          </svg>
+
+          {/* Render Active Trucks dynamically */}
+          {activeRoutes.map((r, index) => {
+            const pos = getLiveTruckPosition(r.truck, index);
+            const isOpen = activeTruckPopup === r.id;
+
+            // Get cargo products summary
+            const routeShipments = shipments.filter(s => s.route_id === r.id);
+            const cargoSummary = routeShipments.reduce((acc, curr) => {
+              acc[curr.product_name] = (acc[curr.product_name] || 0) + curr.quantity;
+              return acc;
+            }, {} as Record<string, number>);
+
+            return (
+              <div key={r.id}>
+                {/* Truck Marker Pin */}
+                <div
+                  className="map-pin truck"
+                  style={{
+                    top: pos.top,
+                    left: pos.left,
+                    cursor: "pointer",
+                    transform: isOpen ? "scale(1.2)" : "none",
+                    transition: "transform 0.2s ease",
+                    zIndex: 10
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTruckPopup(isOpen ? null : r.id);
+                  }}
+                >
+                  {r.truck ? r.truck.replace("T-", "T") : "🚚"}
+                </div>
+
+                {/* Cargo Detail Popover */}
+                {isOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: `calc(${pos.top} - 130px)`,
+                      left: `calc(${pos.left} - 80px)`,
+                      width: "220px",
+                      background: "#1E293B",
+                      color: "#F8FAFC",
+                      borderRadius: "8px",
+                      padding: "12px",
+                      fontSize: "12px",
+                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4)",
+                      border: "1px solid #334155",
+                      zIndex: 100
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Close button */}
+                    <button
+                      style={{
+                        position: "absolute",
+                        top: "6px",
+                        right: "6px",
+                        background: "none",
+                        border: "none",
+                        color: "#94A3B8",
+                        cursor: "pointer",
+                        padding: "2px"
+                      }}
+                      onClick={() => setActiveTruckPopup(null)}
+                    >
+                      <Icon name="x" size={12} />
+                    </button>
+
+                    {/* Header */}
+                    <div style={{ fontWeight: 700, fontSize: "13.5px", color: "#38BDF8", display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                      <Icon name="truck" size={13} />
+                      <span>{r.truck || "Truck"} ({r.id})</span>
+                    </div>
+
+                    {/* Driver */}
+                    <div style={{ marginBottom: "8px", borderBottom: "1px solid #334155", paddingBottom: "6px" }}>
+                      <span style={{ color: "#94A3B8", display: "block", fontSize: "10px", textTransform: "uppercase", fontWeight: 600 }}>Driver</span>
+                      <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#F1F5F9" }}>{r.driver_name || "Unassigned"}</span>
+                    </div>
+
+                    {/* Onboard Cargo Products */}
+                    <div>
+                      <span style={{ color: "#94A3B8", display: "block", fontSize: "10px", textTransform: "uppercase", fontWeight: 600, marginBottom: "4px" }}>Onboard Cargo</span>
+                      {Object.keys(cargoSummary).length === 0 ? (
+                        <span style={{ color: "#64748B", fontStyle: "italic" }}>No cargo loaded</span>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                          {Object.entries(cargoSummary).map(([prod, qty]) => (
+                            <div key={prod} style={{ display: "flex", justifyContent: "space-between", color: "#E2E8F0" }}>
+                              <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", maxWidth: "140px" }}>{prod}</span>
+                              <span style={{ fontWeight: 600, color: "#38BDF8" }}>{qty} bags</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
           <div
-            key={r.id}
             style={{
-              padding: "14px 16px",
-              borderBottom: "1px solid var(--border)",
-              cursor: "pointer",
-              background: i === 0 ? "var(--blue-soft)" : undefined,
-              borderLeft: i === 0 ? "3px solid var(--blue)" : "3px solid transparent",
+              position: "absolute",
+              top: 12,
+              right: 12,
+              background: "white",
+              borderRadius: 8,
+              padding: "10px 12px",
+              border: "1px solid var(--border)",
+              minWidth: 170,
+              boxShadow: "var(--shadow-sm)",
             }}
           >
-            <div className="between">
-              <div style={{ fontWeight: 600, fontSize: 13 }}>{r.id}</div>
-              <StatusChip status={r.status} small />
-            </div>
+            <div className="small muted">Current location</div>
+            <div style={{ fontWeight: 600 }}>Princes Hwy, Warrawong</div>
             <div className="small muted mt-1">
-              {r.driver} · {r.truck}
+              Speed: <span className="mono">58 km/h</span>
             </div>
-            <div className="row mt-1" style={{ gap: 6 }}>
-              <div className="bar" style={{ flex: 1 }}>
-                <div className="bar-fill green" style={{ width: `${(r.progress / r.stops) * 100}%` }} />
-              </div>
-              <span className="small mono">
-                {r.progress}/{r.stops}
-              </span>
+            <div className="small muted">
+              Last ping: <span className="mono">12s ago</span>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
-
-    <div className="card">
-      <div className="card-head">
-        <div>
-          <h3>
-            RT-101 · Luka M.{" "}
-            <span className="chip green" style={{ padding: "1px 7px", fontSize: 11, marginLeft: 6 }}>
-              <span className="dot" />
-              On route
-            </span>
-          </h3>
-          <div className="sub">Stop 3 of 4 · ETA to next: 14:30 · 18 min</div>
         </div>
       </div>
-      <div className="map" style={{ height: 500 }}>
-        <svg
-          viewBox="0 0 400 500"
-          preserveAspectRatio="none"
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-        >
-          <path
-            d="M 48 110 L 168 170 L 112 310"
-            stroke="var(--text-muted)"
-            strokeWidth="2"
-            strokeDasharray="3 3"
-            fill="none"
-          />
-          <path d="M 112 310 L 192 380 L 176 270" stroke="var(--blue)" strokeWidth="2.5" fill="none" />
-          <circle cx="176" cy="270" r="28" fill="rgba(59, 65, 112, 0.08)" stroke="var(--blue)" strokeDasharray="4 4" />
-        </svg>
-        <div className="map-pin green" style={{ top: "22%", left: "12%" }}>
-          ✓
-        </div>
-        <div className="map-pin green" style={{ top: "34%", left: "42%" }}>
-          ✓
-        </div>
-        <div className="map-pin truck" style={{ top: "54%", left: "44%" }}>
-          T2
-        </div>
-        <div className="map-pin orange" style={{ top: "54%", left: "48%" }}>
-          55
-        </div>
-        <div className="map-pin orange" style={{ top: "76%", left: "48%" }}>
-          44
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            background: "white",
-            borderRadius: 8,
-            padding: "10px 12px",
-            border: "1px solid var(--border)",
-            minWidth: 170,
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <div className="small muted">Current location</div>
-          <div style={{ fontWeight: 600 }}>Princes Hwy, Warrawong</div>
-          <div className="small muted mt-1">
-            Speed: <span className="mono">58 km/h</span>
-          </div>
-          <div className="small muted">
-            Last ping: <span className="mono">12s ago</span>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div className="card" style={{ alignSelf: "start" }}>
       <div className="card-head">
@@ -789,9 +925,10 @@ const TrackingA = () => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
-const TrackingB = () => (
+const TrackingB = ({ routes }: { routes: Route[] }) => (
   <div>
     <div className="card mb-2">
       <div className="card-head">
@@ -817,7 +954,9 @@ const TrackingB = () => (
         </div>
       </div>
       <div>
-        {ROUTES.map((r, idx) => (
+        {routes.length === 0 ? (
+          <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)" }}>No routes planned today</div>
+        ) : routes.map((r, idx) => (
           <div key={r.id} style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
             <div className="between mb-2">
               <div className="row" style={{ gap: 12 }}>
@@ -840,7 +979,7 @@ const TrackingB = () => (
                     <StatusChip status={r.status} small />
                   </div>
                   <div className="small muted mt-1">
-                    {r.driver} · {r.truck} · {r.distance} · {r.duration}
+                    {r.driver_name || "Unassigned"} · {r.truck || "—"} · {r.distance_km} km · {r.duration || "—"}
                   </div>
                 </div>
               </div>
@@ -854,7 +993,7 @@ const TrackingB = () => (
                 <div style={{ textAlign: "right" }}>
                   <div className="small muted">Progress</div>
                   <div className="mono" style={{ fontWeight: 600 }}>
-                    {r.progress}/{r.stops}
+                    {r.stops_done}/{r.stops_total}
                   </div>
                 </div>
                 <button className="btn sm">Open</button>
@@ -862,9 +1001,11 @@ const TrackingB = () => (
             </div>
 
             <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-              {[...Array(r.stops)].map((_, i) => {
-                const done = i < r.progress;
-                const current = i === r.progress && r.status === "active";
+              {r.stops_total === 0 ? (
+                <div className="small muted">No stops</div>
+              ) : [...Array(Math.min(r.stops_total, 10))].map((_, i) => {
+                const done = i < r.stops_done;
+                const current = i === r.stops_done && r.status === "active";
                 return (
                   <div key={i} style={{ display: "contents" }}>
                     <div
@@ -885,7 +1026,7 @@ const TrackingB = () => (
                     >
                       {done ? "✓" : i + 1}
                     </div>
-                    {i < r.stops - 1 && (
+                    {i < Math.min(r.stops_total, 10) - 1 && (
                       <div style={{ height: 2, flex: 1, background: done ? "var(--green)" : "var(--border)", minWidth: 20 }} />
                     )}
                   </div>

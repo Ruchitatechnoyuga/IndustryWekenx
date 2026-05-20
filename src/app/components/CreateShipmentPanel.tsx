@@ -51,6 +51,9 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
         setSites(sList);
         setProducts(pList);
         setDrivers(dList);
+        if (pList.length > 0) {
+          setProductName(pList[0].name);
+        }
       } catch (err) {
         console.error("Failed to load options for shipment creation:", err);
       }
@@ -111,6 +114,11 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(customerSearch.toLowerCase())
   );
+
+  // Filter sites associated with selected customer
+  const customerSites = selectedCustomer
+    ? sites.filter(s => s.customer_id === selectedCustomer.id)
+    : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -300,23 +308,57 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
             <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "6px" }}>
               Site / Delivery Location <span style={{ color: "var(--red)" }}>*</span>
             </label>
-            <input
-              type="text"
-              value={siteName}
-              onChange={(e) => setSiteName(e.target.value)}
-              placeholder="Auto-fills from customer, but editable"
-              style={{
-                width: "100%",
-                padding: "9px 12px",
-                background: "#F8FAFC",
-                border: "1px solid var(--border)",
-                borderRadius: "6px",
-                fontSize: "13.5px",
-                outline: "none",
-                fontWeight: 500,
-                color: "var(--text)"
-              }}
-            />
+            {selectedCustomer ? (
+              customerSites.length > 0 ? (
+                <select
+                  value={siteName}
+                  onChange={(e) => {
+                    const selectedSite = customerSites.find(s => s.name === e.target.value);
+                    setSiteName(e.target.value);
+                    setSelectedSiteId(selectedSite ? selectedSite.id : "");
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    background: "#F8FAFC",
+                    border: "1px solid var(--border)",
+                    borderRadius: "6px",
+                    fontSize: "13.5px",
+                    outline: "none",
+                    fontWeight: 600,
+                    color: "var(--text)",
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="" disabled>Select a site...</option>
+                  {customerSites.map(s => (
+                    <option key={s.id} value={s.name}>
+                      {s.name} ({s.suburb})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ fontSize: "13px", color: "#DC2626", fontWeight: 500, padding: "10px 14px", background: "#FEF2F2", borderRadius: "6px", border: "1px solid #FCA5A5" }}>
+                  ⚠️ No sites registered for this customer. Please add a site first.
+                </div>
+              )
+            ) : (
+              <select
+                disabled
+                style={{
+                  width: "100%",
+                  padding: "9px 12px",
+                  background: "#F1F5F9",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  fontSize: "13.5px",
+                  color: "var(--text-subtle)",
+                  cursor: "not-allowed"
+                }}
+              >
+                <option>First, select a customer above...</option>
+              </select>
+            )}
           </div>
 
           {/* 3. Product */}
@@ -340,11 +382,15 @@ export const CreateShipmentPanel = ({ onClose, onCreated }: CreateShipmentPanelP
                 cursor: "pointer"
               }}
             >
-              <option value="Ice Bag 5kg">Ice Bag 5kg</option>
-              <option value="Ice Bag 10kg">Ice Bag 10kg</option>
-              <option value="Crushed Ice 5kg">Crushed Ice 5kg</option>
-              <option value="Ice Block 10kg">Ice Block 10kg</option>
-              <option value="Dry Ice 5kg">Dry Ice 5kg</option>
+              {products.length === 0 ? (
+                <option value="" disabled>No products available</option>
+              ) : (
+                products.map(p => (
+                  <option key={p.id} value={p.name}>
+                    {p.name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

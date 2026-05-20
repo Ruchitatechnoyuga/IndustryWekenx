@@ -11,14 +11,17 @@ import { Reports } from "./screens/Reports";
 import { Fridges } from "./screens/Fridges";
 import { Inventory } from "./screens/Inventory";
 import { Placeholder } from "./screens/Placeholder";
+import { CustomersSites } from "./screens/CustomersSites";
+import { DriversVehicles } from "./screens/DriversVehicles";
 import { CreateShipmentPanel } from "./components/CreateShipmentPanel";
 
 const SCREENS: Record<string, { comp: (onNav?: (route: string) => void) => JSX.Element; label: string }> = {
-  "dashboard": { comp: () => <Dashboard />, label: "Home / Dashboard" },
+  "dashboard": { comp: (onNav) => <Dashboard onNav={onNav} />, label: "Home / Dashboard" },
   "space-input": { comp: () => <SpaceInput />, label: "Daily Space Input" },
   "route-planner": { comp: () => <RoutePlanner />, label: "Route Planner" },
   "active-routes": { comp: () => <Shipments />, label: "Shipments" },
-  "customers": { comp: () => <Placeholder title="Customers & Sites" sub="Customer and site management" module="Module 01 — Customer Management" />, label: "Customers & Sites" },
+  "customers": { comp: () => <CustomersSites />, label: "Customers & Sites" },
+  "drivers": { comp: () => <DriversVehicles />, label: "Drivers & Vehicles" },
   "invoices": { comp: () => <Invoices />, label: "Invoices & Payments" },
   "fridges": { comp: () => <Fridges />, label: "Fridges & Capacity" },
   "products": { comp: () => <Products />, label: "Products & Pallets" },
