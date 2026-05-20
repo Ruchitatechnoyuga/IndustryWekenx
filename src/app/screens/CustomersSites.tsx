@@ -116,6 +116,43 @@ export const CustomersSites = () => {
   const [editingSite, setEditingSite] = useState<Site | null>(null);
   const [stockEditingSite, setStockEditingSite] = useState<Site | null>(null);
 
+  // ── Collapsible Panel States (Add Customer / Drawer) ──
+  const [isCustPersonalOpen, setIsCustPersonalOpen] = useState(true);
+  const [isCustSettingsOpen, setIsCustSettingsOpen] = useState(true);
+  const [isCustInlineSiteOpen, setIsCustInlineSiteOpen] = useState(true);
+
+  // ── Quick Fill Example Data for Customer ──
+  const handleQuickFillCustomer = () => {
+    const examples = [
+      { name: "Woolworths Metro Miranda", contact: "James Harrington", phone: "0412 008 441", hours: "Mon–Fri 6am–10pm", po: true, notes: "Deliveries via main loading dock only." },
+      { name: "BP Roadhouse Port Kembla", contact: "Rhea Tan", phone: "0433 112 908", hours: "24 hours", po: true, notes: "No weekend deliveries. Emergency backup fuel contact." },
+      { name: "Coles Central Wollongong", contact: "Lisa Park", phone: "0466 221 554", hours: "07:00 – 22:00", po: false, notes: "Prompt for invoice clearance on arrival." }
+    ];
+    const pick = examples[Math.floor(Math.random() * examples.length)];
+    setCustCompanyName(pick.name);
+    setCustContact(pick.contact);
+    setCustPhone(pick.phone);
+    setCustHours(pick.hours);
+    setCustPO(pick.po);
+    setCustNotes(pick.notes);
+    
+    // Fill inline site details too
+    setCustAddSiteInline(true);
+    setInlineSiteName(pick.name + " Main Site");
+    setInlineSiteSuburb(pick.name.includes("Miranda") ? "Miranda" : pick.name.includes("Kembla") ? "Port Kembla" : "Wollongong");
+    setInlineSiteCapacity(500);
+    setInlineSiteCurrent(240);
+    setInlineSitePallets("2 × Standard Pallets");
+    setInlineSiteLastDelivered("2026-05-18");
+    setInlineSiteScheduled("2026-05-23");
+    setInlineSiteETA("Mon-Fri 6am-6pm");
+    setInlineSiteStatus("orange");
+    setInlineSiteHasPO(pick.po);
+    setInlineSiteEmergency(false);
+    setInlineSiteReliability("reliable");
+    setInlineSiteNotes("Dock keycode: 4892");
+  };
+
   // ── Customer Form Fields ──
   const [custCompanyName, setCustCompanyName] = useState("");
   const [custContact, setCustContact] = useState("");
@@ -471,6 +508,173 @@ export const CustomersSites = () => {
         .modal-overlay { position:fixed;inset:0;background-color:rgba(15,20,25,0.4);backdrop-filter:blur(4px);z-index:2000;display:grid;place-items:center;padding:24px; }
         .modal-card { width:100%;max-width:400px;background:#ffffff;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);border:1px solid var(--border);overflow:hidden;animation:scaleUp 0.15s ease-out; }
         @keyframes scaleUp { from{transform:scale(0.95);opacity:0}to{transform:scale(1);opacity:1} }
+
+        /* Collapsible Form Section Styling matching reference design */
+        .premium-card {
+          background: #ffffff;
+          border: 1px solid #dde3ea;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          margin-bottom: 16px;
+          transition: all 0.2s ease;
+        }
+        .premium-card:hover {
+          border-color: #cbd5e1;
+        }
+        .premium-header {
+          background-color: #f0f6ff !important;
+          padding: 12px 16px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          cursor: pointer;
+          user-select: none;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .premium-header h3 {
+          margin: 0;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          color: #1e3a8a !important; /* Bold navy */
+        }
+        .premium-toggle-icon {
+          color: #1e3a8a;
+          font-size: 12px;
+          font-weight: bold;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .premium-toggle-icon.collapsed {
+          transform: rotate(180deg);
+        }
+        .premium-body {
+          padding: 16px 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          background: #ffffff;
+        }
+        
+        /* Form Field Aesthetics */
+        .form-grid-2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .form-grid-3 {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 12px;
+        }
+        .premium-label {
+          display: block;
+          font-size: 12px;
+          font-weight: 600;
+          color: #1e293b;
+          margin-bottom: 6px;
+        }
+        .premium-label .required {
+          color: #ef4444;
+          margin-left: 3px;
+        }
+        .premium-input {
+          width: 100%;
+          border: 1px solid #cbd5e1 !important;
+          border-radius: 6px !important;
+          padding: 9px 12px !important;
+          font-size: 13.5px !important;
+          color: #0f172a !important;
+          background-color: #ffffff !important;
+          transition: all 0.15s ease-in-out;
+        }
+        .premium-input:focus {
+          border-color: #0ea5e9 !important;
+          box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15) !important;
+          outline: none !important;
+        }
+        .premium-input::placeholder {
+          color: #94a3b8;
+          font-size: 13px;
+        }
+        
+        /* Custom Flags / Selectors */
+        .phone-input-group {
+          display: flex;
+          align-items: center;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          overflow: hidden;
+          background-color: #ffffff;
+          transition: border-color 0.15s ease;
+          width: 100%;
+        }
+        .phone-input-group:focus-within {
+          border-color: #0ea5e9;
+          box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        }
+        .flag-dropdown {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 10px;
+          background-color: #f8fafc;
+          border-right: 1px solid #cbd5e1;
+          font-size: 14px;
+          font-weight: 500;
+          color: #475569;
+          user-select: none;
+        }
+        .phone-input-group input {
+          border: none !important;
+          box-shadow: none !important;
+          padding: 9px 12px !important;
+          flex: 1;
+        }
+        
+        /* Radio layout */
+        .radio-group-horizontal {
+          display: flex;
+          gap: 16px;
+          align-items: center;
+          margin-top: 4px;
+        }
+        .radio-option {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 500;
+          color: #334155;
+          user-select: none;
+        }
+        .radio-option input[type="radio"] {
+          width: 16px;
+          height: 16px;
+          accent-color: #0ea5e9;
+        }
+        
+        /* Quick Fill Testing Button */
+        .quick-fill-btn {
+          background-color: #f0fdf4 !important;
+          border: 1px solid #bbf7d0 !important;
+          color: #15803d !important;
+          font-weight: 600 !important;
+          font-size: 12px !important;
+          padding: 6px 12px !important;
+          border-radius: 6px !important;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .quick-fill-btn:hover {
+          background-color: #dcfce7 !important;
+          border-color: #86efac !important;
+        }
       `}</style>
 
       {/* Breadcrumbs */}
@@ -671,145 +875,273 @@ export const CustomersSites = () => {
         <span style={{ color: "var(--grey-hold)", fontWeight: 600 }}>{onHoldSitesCount} on hold</span>
       </div>
 
-      {/* ── CUSTOMER DRAWER ─────────────────────────────────────────── */}
-      <div className={`drawer-overlay ${isCustomerDrawerOpen ? "open" : ""}`} onClick={() => setIsCustomerDrawerOpen(false)} />
-      <div className={`drawer-container ${isCustomerDrawerOpen ? "open" : ""}`}>
-        <form onSubmit={handleSaveCustomer} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-          <div className="drawer-header">
-            <h2>{editingCustomer ? "Edit Customer Details" : "Add New Customer"}</h2>
-            <button type="button" className="btn ghost icon" onClick={() => setIsCustomerDrawerOpen(false)}><Icon name="x" size={16} /></button>
-          </div>
-          <div className="drawer-body">
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div className="field"><label>Company Name *</label><input type="text" required placeholder="e.g. Woolworths Metro" value={custCompanyName} onChange={(e) => setCustCompanyName(e.target.value)} /></div>
-              <div className="field"><label>Contact Person *</label><input type="text" required placeholder="e.g. James Harrington" value={custContact} onChange={(e) => setCustContact(e.target.value)} /></div>
-              <div className="field"><label>Phone *</label><input type="text" required placeholder="e.g. 0412 345 678" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} /></div>
-              <div className="field"><label>Operating Hours *</label><input type="text" required placeholder="e.g. Mon–Fri 6am–6pm" value={custHours} onChange={(e) => setCustHours(e.target.value)} /></div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px dashed var(--border)" }}>
-                <div>
-                  <div style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--text)" }}>Purchase Order Required?</div>
-                  <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Drivers will prompt for PO before completing delivery</div>
-                </div>
-                <label className="switch"><input type="checkbox" checked={custPO} onChange={(e) => setCustPO(e.target.checked)} /><span className="slider" /></label>
+      {/* ── CUSTOMER MODAL ─────────────────────────────────────────── */}
+      {isCustomerDrawerOpen && (
+        <div className="modal-overlay" onClick={() => setIsCustomerDrawerOpen(false)} style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,23,42,0.3)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ background:"#fff",borderRadius:12,width:custAddSiteInline && !editingCustomer ? 680 : 540,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 25px 50px -12px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column" }}>
+            <form onSubmit={handleSaveCustomer} style={{ display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
+              <div style={{ padding:"16px 24px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <h2 style={{ fontSize:17,fontWeight:700,margin:0 }}>{editingCustomer ? "Edit Customer Details" : "Add New Customer"}</h2>
+                <button type="button" onClick={() => setIsCustomerDrawerOpen(false)} style={{ background:"none",border:"none",cursor:"pointer" }}><Icon name="x" size={18} /></button>
               </div>
-              <div className="field"><label>Notes (Optional)</label><textarea placeholder="Any special instructions or billing requirements..." value={custNotes} onChange={(e) => setCustNotes(e.target.value)} /></div>
+              <div style={{ padding: 24 }}>
+                {!editingCustomer && (
+                  <div style={{ marginBottom: "16px", display: "flex", justifyContent: "flex-end" }}>
+                    <button type="button" className="quick-fill-btn" onClick={handleQuickFillCustomer}>
+                      <Icon name="zap" size={14} /> Quick Fill Example Data
+                    </button>
+                  </div>
+                )}
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Company Name *</label>
+                    <input type="text" className="input" required placeholder="Enter company name, e.g. Woolworths Metro" value={custCompanyName} onChange={(e) => setCustCompanyName(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Contact Person *</label>
+                    <input type="text" className="input" required placeholder="Enter contact person name" value={custContact} onChange={(e) => setCustContact(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Phone *</label>
+                    <div className="phone-input-group">
+                      <div className="flag-dropdown">
+                        <span>🇦🇺</span>
+                        <span>+61</span>
+                      </div>
+                      <input type="text" required placeholder="e.g. 412 345 678" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Operating Hours *</label>
+                    <input type="text" className="input" required placeholder="e.g. Mon–Fri 6am–6pm" value={custHours} onChange={(e) => setCustHours(e.target.value)} />
+                  </div>
+                  
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Purchase Order Required?</label>
+                    <div className="radio-group-horizontal" style={{ display: "flex", gap: "16px", marginTop: "4px" }}>
+                      <label className="radio-option" style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px", fontWeight: 500, color: "#334155" }}>
+                        <input type="radio" checked={custPO === true} onChange={() => setCustPO(true)} style={{ width: "16px", height: "16px", accentColor: "#0ea5e9" }} />
+                        Yes
+                      </label>
+                      <label className="radio-option" style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px", fontWeight: 500, color: "#334155" }}>
+                        <input type="radio" checked={custPO === false} onChange={() => setCustPO(false)} style={{ width: "16px", height: "16px", accentColor: "#0ea5e9" }} />
+                        No
+                      </label>
+                    </div>
+                  </div>
 
-              {!editingCustomer && (
-                <div style={{ marginTop: "8px" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", userSelect: "none" }}>
-                    <input type="checkbox" checked={custAddSiteInline} onChange={(e) => setCustAddSiteInline(e.target.checked)} style={{ width: "16px", height: "16px", accentColor: "var(--blue)" }} />
-                    <span style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--text)" }}>This customer also has a site — add site details below</span>
-                  </label>
-                  {custAddSiteInline && (
-                    <div className="drawer-expand-section">
-                      <h4 style={{ margin: "0 0 6px 0", fontSize: "13.5px", fontWeight: 600, borderBottom: "1px solid var(--border)", paddingBottom: "6px" }}>Site Details</h4>
-                      <div className="field"><label>Site Name *</label><input type="text" required={custAddSiteInline} placeholder="e.g. City Ice CBD" value={inlineSiteName} onChange={(e) => setInlineSiteName(e.target.value)} /></div>
-                      <div className="field"><label>Suburb *</label><input type="text" required={custAddSiteInline} placeholder="e.g. Melbourne CBD" value={inlineSiteSuburb} onChange={(e) => setInlineSiteSuburb(e.target.value)} /></div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                        <div className="field"><label>Capacity (Bags)</label><input type="number" min={1} value={inlineSiteCapacity} onChange={(e) => setInlineSiteCapacity(Number(e.target.value))} /></div>
-                        <div className="field"><label>Current Stock (Bags)</label><input type="number" min={0} value={inlineSiteCurrent} onChange={(e) => setInlineSiteCurrent(Number(e.target.value))} /></div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Notes (Optional)</label>
+                    <textarea className="input" style={{ minHeight: "80px" }} placeholder="Any special instructions or billing requirements..." value={custNotes} onChange={(e) => setCustNotes(e.target.value)} />
+                  </div>
+
+                  {!editingCustomer && (
+                    <div style={{ gridColumn: "1/-1", margin: "8px 0" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", userSelect: "none" }}>
+                        <input type="checkbox" checked={custAddSiteInline} onChange={(e) => setCustAddSiteInline(e.target.checked)} style={{ width: "16px", height: "16px", accentColor: "var(--blue)" }} />
+                        <span style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--text)" }}>This customer also has a site — add site details below</span>
+                      </label>
+                    </div>
+                  )}
+                  
+                  {custAddSiteInline && !editingCustomer && (
+                    <div style={{ gridColumn: "1/-1", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, borderTop: "1px dashed var(--border)", paddingTop: 14 }}>
+                      <div className="field" style={{ gridColumn: "1/-1" }}>
+                        <label style={{ fontWeight: 600, color: "#1e3a8a", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Site Details</label>
                       </div>
-                      <div className="field"><label>Pallet Description</label><input type="text" placeholder="e.g. 2 × Euro Pallets" value={inlineSitePallets} onChange={(e) => setInlineSitePallets(e.target.value)} /></div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                        <div className="field"><label>Last Delivered</label><input type="date" value={inlineSiteLastDelivered} onChange={(e) => setInlineSiteLastDelivered(e.target.value)} /></div>
-                        <div className="field"><label>Scheduled Delivery</label><input type="date" value={inlineSiteScheduled} onChange={(e) => setInlineSiteScheduled(e.target.value)} /></div>
+                      <div className="field" style={{ gridColumn: "1/-1" }}>
+                        <label>Site Name *</label>
+                        <input type="text" className="input" required={custAddSiteInline} placeholder="e.g. City Ice CBD" value={inlineSiteName} onChange={(e) => setInlineSiteName(e.target.value)} />
                       </div>
-                      <div className="field"><label>Delivery Hours / ETA</label><input type="text" placeholder="e.g. 24/7 or Mon–Fri 6am" value={inlineSiteETA} onChange={(e) => setInlineSiteETA(e.target.value)} /></div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                        <div className="field"><label>Stock Status</label><select value={inlineSiteStatus} onChange={(e) => setInlineSiteStatus(e.target.value as any)}><option value="green">🟢 Good</option><option value="orange">🟠 Order Soon</option><option value="red">🔴 Urgent</option><option value="hold">⏸ Hold</option></select></div>
-                        <div className="field"><label>Reliability</label><select value={inlineSiteReliability} onChange={(e) => setInlineSiteReliability(e.target.value as any)}><option value="reliable">Reliable</option><option value="unreliable">Unreliable</option></select></div>
+                      <div className="field" style={{ gridColumn: "1/-1" }}>
+                        <label>Suburb *</label>
+                        <input type="text" className="input" required={custAddSiteInline} placeholder="e.g. Melbourne CBD" value={inlineSiteSuburb} onChange={(e) => setInlineSiteSuburb(e.target.value)} />
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "6px 0" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span style={{ fontSize: "12.5px", fontWeight: 500 }}>Has PO?</span><label className="switch"><input type="checkbox" checked={inlineSiteHasPO} onChange={(e) => setInlineSiteHasPO(e.target.checked)} /><span className="slider" /></label></div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><span style={{ fontSize: "12.5px", fontWeight: 500, color: "var(--red)" }}>Emergency Flag</span><label className="switch"><input type="checkbox" checked={inlineSiteEmergency} onChange={(e) => setInlineSiteEmergency(e.target.checked)} /><span className="slider" /></label></div>
+                      <div className="field">
+                        <label>Capacity (Bags)</label>
+                        <input type="number" className="input" min={1} value={inlineSiteCapacity} onChange={(e) => setInlineSiteCapacity(Number(e.target.value))} />
                       </div>
-                      <div className="field"><label>Site Notes</label><textarea placeholder="Loading dock passcode, clearance issues..." value={inlineSiteNotes} onChange={(e) => setInlineSiteNotes(e.target.value)} /></div>
+                      <div className="field">
+                        <label>Current Stock (Bags)</label>
+                        <input type="number" className="input" min={0} value={inlineSiteCurrent} onChange={(e) => setInlineSiteCurrent(Number(e.target.value))} />
+                      </div>
+                      <div className="field" style={{ gridColumn: "1/-1" }}>
+                        <label>Pallet Description</label>
+                        <input type="text" className="input" placeholder="e.g. 2 × Euro Pallets" value={inlineSitePallets} onChange={(e) => setInlineSitePallets(e.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label>Last Delivered</label>
+                        <input type="date" className="input" value={inlineSiteLastDelivered} onChange={(e) => setInlineSiteLastDelivered(e.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label>Scheduled Delivery</label>
+                        <input type="date" className="input" value={inlineSiteScheduled} onChange={(e) => setInlineSiteScheduled(e.target.value)} />
+                      </div>
+                      <div className="field" style={{ gridColumn: "1/-1" }}>
+                        <label>Delivery Hours / ETA</label>
+                        <input type="text" className="input" placeholder="e.g. 24/7 or Mon–Fri 6am" value={inlineSiteETA} onChange={(e) => setInlineSiteETA(e.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label>Stock Status</label>
+                        <select className="select" value={inlineSiteStatus} onChange={(e) => setInlineSiteStatus(e.target.value as any)}>
+                          <option value="green">🟢 Good</option>
+                          <option value="orange">🟠 Order Soon</option>
+                          <option value="red">🔴 Urgent</option>
+                          <option value="hold">⏸ Hold</option>
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label>Reliability</label>
+                        <select className="select" value={inlineSiteReliability} onChange={(e) => setInlineSiteReliability(e.target.value as any)}>
+                          <option value="reliable">Reliable</option>
+                          <option value="unreliable">Unreliable</option>
+                        </select>
+                      </div>
+                      
+                      <div style={{ gridColumn: "1/-1", display: "flex", flexDirection: "column", gap: "10px", padding: "6px 0" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: "12.5px", fontWeight: 500 }}>Has PO?</span>
+                          <label className="switch"><input type="checkbox" checked={inlineSiteHasPO} onChange={(e) => setInlineSiteHasPO(e.target.checked)} /><span className="slider" /></label>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: "12.5px", fontWeight: 500, color: "var(--red)" }}>Emergency Flag</span>
+                          <label className="switch"><input type="checkbox" checked={inlineSiteEmergency} onChange={(e) => setInlineSiteEmergency(e.target.checked)} /><span className="slider" /></label>
+                        </div>
+                      </div>
+                      <div className="field" style={{ gridColumn: "1/-1" }}>
+                        <label>Site Notes</label>
+                        <textarea className="input" placeholder="Loading dock passcode, clearance issues..." value={inlineSiteNotes} onChange={(e) => setInlineSiteNotes(e.target.value)} />
+                      </div>
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+              <div style={{ padding:"14px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:8,background:"#fff" }}>
+                <button type="button" className="btn" onClick={() => setIsCustomerDrawerOpen(false)}>Cancel</button>
+                <button type="submit" className="btn primary" disabled={saving}>{saving ? "Saving…" : "Save Customer"}</button>
+              </div>
+            </form>
           </div>
-          <div className="drawer-footer">
-            <button type="button" className="btn ghost" onClick={() => setIsCustomerDrawerOpen(false)}>Cancel</button>
-            <button type="submit" className="btn primary" disabled={saving}>{saving ? "Saving…" : "Save Customer"}</button>
-          </div>
-        </form>
-      </div>
+        </div>
+      )}
 
-      {/* ── SITE DRAWER ──────────────────────────────────────────────── */}
-      <div className={`drawer-overlay ${isSiteDrawerOpen ? "open" : ""}`} onClick={() => setIsSiteDrawerOpen(false)} />
-      <div className={`drawer-container ${isSiteDrawerOpen ? "open" : ""}`}>
-        <form onSubmit={handleSaveSite} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-          <div className="drawer-header">
-            <h2>{editingSite ? "Edit Site Details" : "Add New Site"}</h2>
-            <button type="button" className="btn ghost icon" onClick={() => setIsSiteDrawerOpen(false)}><Icon name="x" size={16} /></button>
-          </div>
-          <div className="drawer-body">
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div className="field"><label>Site Name *</label><input type="text" required placeholder="e.g. City Ice CBD" value={siteName} onChange={(e) => setSiteName(e.target.value)} /></div>
-              <div className="field"><label>Suburb *</label><input type="text" required placeholder="e.g. Melbourne CBD" value={siteSuburb} onChange={(e) => setSiteSuburb(e.target.value)} /></div>
-              <div className="field">
-                <label>Customer *</label>
-                <select value={siteCustomer} onChange={(e) => setSiteCustomer(e.target.value)} required>
-                  {customers.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  <option value="+ New Customer">+ New Customer (Bill site directly)</option>
-                </select>
+      {/* ── SITE MODAL ──────────────────────────────────────────────── */}
+      {isSiteDrawerOpen && (
+        <div className="modal-overlay" onClick={() => setIsSiteDrawerOpen(false)} style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,23,42,0.3)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ background:"#fff",borderRadius:12,width:siteAddCustomerInline && !editingSite ? 680 : 540,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 25px 50px -12px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column" }}>
+            <form onSubmit={handleSaveSite} style={{ display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
+              <div style={{ padding:"16px 24px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <h2 style={{ fontSize:17,fontWeight:700,margin:0 }}>{editingSite ? "Edit Site Details" : "Add New Site"}</h2>
+                <button type="button" onClick={() => setIsSiteDrawerOpen(false)} style={{ background:"none",border:"none",cursor:"pointer" }}><Icon name="x" size={18} /></button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <div className="field"><label>Capacity (Bags)</label><input type="number" min={1} value={siteCapacity} onChange={(e) => { setSiteCapacity(Number(e.target.value)); setSiteRequired(Math.max(0, Number(e.target.value) - siteCurrent)); }} /></div>
-                <div className="field"><label>Current Stock (Bags)</label><input type="number" min={0} max={siteCapacity} value={siteCurrent} onChange={(e) => { setSiteCurrent(Number(e.target.value)); setSiteRequired(Math.max(0, siteCapacity - Number(e.target.value))); }} /></div>
-              </div>
-              <div className="field"><label>Required Stock (auto-calculated)</label><input type="number" readOnly disabled value={siteRequired} style={{ background: "var(--bg-soft)", cursor: "not-allowed" }} /></div>
-              <div className="field"><label>Pallet Description</label><input type="text" placeholder="e.g. 2 × Euro Pallets" value={sitePalletDesc} onChange={(e) => setSitePalletDesc(e.target.value)} /></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <div className="field"><label>Last Delivered Date</label><input type="text" placeholder="e.g. 14 May" value={siteLastDelivered} onChange={(e) => setSiteLastDelivered(e.target.value)} /></div>
-                <div className="field"><label>Scheduled Delivery</label><input type="text" placeholder="e.g. 19 May" value={siteScheduled} disabled={siteStatus === "hold"} onChange={(e) => setSiteScheduled(e.target.value)} style={siteStatus === "hold" ? { background: "var(--bg-soft)", cursor: "not-allowed" } : undefined} /></div>
-              </div>
-              <div className="field"><label>Delivery Hours / ETA</label><input type="text" placeholder="e.g. Mon–Fri 6am–6pm" value={siteETA} onChange={(e) => setSiteETA(e.target.value)} /></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <div className="field"><label>Status</label><select value={siteStatus} onChange={(e) => { const v = e.target.value as any; setSiteStatus(v); if (v === "hold") setSiteScheduled("On hold"); }}><option value="green">🟢 Good</option><option value="orange">🟠 Order Soon</option><option value="red">🔴 Urgent</option><option value="hold">⏸ Hold</option></select></div>
-                <div className="field"><label>Stock Reliability</label><select value={siteReliability} onChange={(e) => setSiteReliability(e.target.value as any)}><option value="reliable">Reliable</option><option value="unreliable">Unreliable</option></select></div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "10px 0", borderBottom: "1px dashed var(--border)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div><div style={{ fontSize: "13px", fontWeight: 600 }}>Has Active PO?</div><div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>Budget authorized under customer's PO</div></div>
-                  <label className="switch"><input type="checkbox" checked={siteHasPO} onChange={(e) => setSiteHasPO(e.target.checked)} /><span className="slider" /></label>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div><div style={{ fontSize: "13px", fontWeight: 600, color: "var(--red)" }}>Emergency Flag</div><div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>Flags for immediate priority routing</div></div>
-                  <label className="switch"><input type="checkbox" checked={siteEmergency} onChange={(e) => setSiteEmergency(e.target.checked)} /><span className="slider" /></label>
-                </div>
-              </div>
-              <div className="field"><label>Notes (Optional)</label><textarea placeholder="Gate code, forklift locations, contact schedule..." value={siteNotes} onChange={(e) => setSiteNotes(e.target.value)} /></div>
-
-              {!editingSite && (siteCustomer === "+ New Customer" || siteAddCustomerInline) && (
-                <div style={{ marginTop: "8px" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", userSelect: "none" }}>
-                    <input type="checkbox" checked={siteAddCustomerInline} onChange={(e) => setSiteAddCustomerInline(e.target.checked)} style={{ width: "16px", height: "16px", accentColor: "var(--blue)" }} />
-                    <span style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--text)" }}>This site is also a customer (bill directly)</span>
-                  </label>
-                  {siteAddCustomerInline && (
-                    <div className="drawer-expand-section">
-                      <h4 style={{ margin: "0 0 6px 0", fontSize: "13.5px", fontWeight: 600, borderBottom: "1px solid var(--border)", paddingBottom: "6px" }}>Billing Customer Details</h4>
-                      <div className="field"><label>Contact Person *</label><input type="text" required={siteAddCustomerInline} placeholder="e.g. Sandra Liu" value={inlineCustContact} onChange={(e) => setInlineCustContact(e.target.value)} /></div>
-                      <div className="field"><label>Phone *</label><input type="text" required={siteAddCustomerInline} placeholder="e.g. 0498 221 009" value={inlineCustPhone} onChange={(e) => setInlineCustPhone(e.target.value)} /></div>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px" }}>
-                        <span style={{ fontSize: "12.5px", fontWeight: 500 }}>PO Required?</span>
-                        <label className="switch"><input type="checkbox" checked={inlineCustPO} onChange={(e) => setInlineCustPO(e.target.checked)} /><span className="slider" /></label>
-                      </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Site Name *</label>
+                    <input type="text" className="input" required placeholder="e.g. City Ice CBD" value={siteName} onChange={(e) => setSiteName(e.target.value)} />
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Suburb *</label>
+                    <input type="text" className="input" required placeholder="e.g. Melbourne CBD" value={siteSuburb} onChange={(e) => setSiteSuburb(e.target.value)} />
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Customer *</label>
+                    <select className="select" value={siteCustomer} onChange={(e) => setSiteCustomer(e.target.value)} required>
+                      {customers.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      <option value="+ New Customer">+ New Customer (Bill site directly)</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Capacity (Bags)</label>
+                    <input type="number" className="input" min={1} value={siteCapacity} onChange={(e) => { setSiteCapacity(Number(e.target.value)); setSiteRequired(Math.max(0, Number(e.target.value) - siteCurrent)); }} />
+                  </div>
+                  <div className="field">
+                    <label>Current Stock (Bags)</label>
+                    <input type="number" className="input" min={0} max={siteCapacity} value={siteCurrent} onChange={(e) => { setSiteCurrent(Number(e.target.value)); setSiteRequired(Math.max(0, siteCapacity - Number(e.target.value))); }} />
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Required Stock (auto-calculated)</label>
+                    <input type="number" className="input" readOnly disabled value={siteRequired} style={{ background: "var(--bg-soft)", cursor: "not-allowed" }} />
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Pallet Description</label>
+                    <input type="text" className="input" placeholder="e.g. 2 × Euro Pallets" value={sitePalletDesc} onChange={(e) => setSitePalletDesc(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Last Delivered Date</label>
+                    <input type="text" className="input" placeholder="e.g. 14 May" value={siteLastDelivered} onChange={(e) => setSiteLastDelivered(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Scheduled Delivery</label>
+                    <input type="text" className="input" placeholder="e.g. 19 May" value={siteScheduled} disabled={siteStatus === "hold"} onChange={(e) => setSiteScheduled(e.target.value)} style={siteStatus === "hold" ? { background: "var(--bg-soft)", cursor: "not-allowed" } : undefined} />
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Delivery Hours / ETA</label>
+                    <input type="text" className="input" placeholder="e.g. Mon–Fri 6am–6pm" value={siteETA} onChange={(e) => setSiteETA(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Status</label>
+                    <select className="select" value={siteStatus} onChange={(e) => { const v = e.target.value as any; setSiteStatus(v); if (v === "hold") setSiteScheduled("On hold"); }}><option value="green">🟢 Good</option><option value="orange">🟠 Order Soon</option><option value="red">🔴 Urgent</option><option value="hold">⏸ Hold</option></select>
+                  </div>
+                  <div className="field">
+                    <label>Stock Reliability</label>
+                    <select className="select" value={siteReliability} onChange={(e) => setSiteReliability(e.target.value as any)}><option value="reliable">Reliable</option><option value="unreliable">Unreliable</option></select>
+                  </div>
+                  
+                  <div style={{ gridColumn: "1/-1", display: "flex", flexDirection: "column", gap: "10px", padding: "10px 0", borderBottom: "1px dashed var(--border)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div><div style={{ fontSize: "13px", fontWeight: 600 }}>Has Active PO?</div><div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>Budget authorized under customer's PO</div></div>
+                      <label className="switch"><input type="checkbox" checked={siteHasPO} onChange={(e) => setSiteHasPO(e.target.checked)} /><span className="slider" /></label>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div><div style={{ fontSize: "13px", fontWeight: 600, color: "var(--red)" }}>Emergency Flag</div><div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>Flags for immediate priority routing</div></div>
+                      <label className="switch"><input type="checkbox" checked={siteEmergency} onChange={(e) => setSiteEmergency(e.target.checked)} /><span className="slider" /></label>
+                    </div>
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Notes (Optional)</label>
+                    <textarea className="input" placeholder="Gate code, forklift locations, contact schedule..." value={siteNotes} onChange={(e) => setSiteNotes(e.target.value)} />
+                  </div>
+                  
+                  {!editingSite && (siteCustomer === "+ New Customer" || siteAddCustomerInline) && (
+                    <div style={{ gridColumn: "1/-1", marginTop: "8px" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", userSelect: "none" }}>
+                        <input type="checkbox" checked={siteAddCustomerInline} onChange={(e) => setSiteAddCustomerInline(e.target.checked)} style={{ width: "16px", height: "16px", accentColor: "var(--blue)" }} />
+                        <span style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--text)" }}>This site is also a customer (bill directly)</span>
+                      </label>
+                      
+                      {siteAddCustomerInline && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, borderTop: "1px dashed var(--border)", paddingTop: 14, marginTop: 14 }}>
+                          <div className="field" style={{ gridColumn: "1/-1" }}>
+                            <label style={{ fontWeight: 600, color: "#1e3a8a", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Billing Customer Details</label>
+                          </div>
+                          <div className="field" style={{ gridColumn: "1/-1" }}>
+                            <label>Contact Person *</label>
+                            <input type="text" className="input" required={siteAddCustomerInline} placeholder="e.g. Sandra Liu" value={inlineCustContact} onChange={(e) => setInlineCustContact(e.target.value)} />
+                          </div>
+                          <div className="field" style={{ gridColumn: "1/-1" }}>
+                            <label>Phone *</label>
+                            <input type="text" className="input" required={siteAddCustomerInline} placeholder="e.g. 0498 221 009" value={inlineCustPhone} onChange={(e) => setInlineCustPhone(e.target.value)} />
+                          </div>
+                          <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px" }}>
+                            <span style={{ fontSize: "12.5px", fontWeight: 500 }}>PO Required?</span>
+                            <label className="switch"><input type="checkbox" checked={inlineCustPO} onChange={(e) => setInlineCustPO(e.target.checked)} /><span className="slider" /></label>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+              <div style={{ padding:"14px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:8,background:"#fff" }}>
+                <button type="button" className="btn" onClick={() => setIsSiteDrawerOpen(false)}>Cancel</button>
+                <button type="submit" className="btn primary" disabled={saving}>{saving ? "Saving…" : "Save Site"}</button>
+              </div>
+            </form>
           </div>
-          <div className="drawer-footer">
-            <button type="button" className="btn ghost" onClick={() => setIsSiteDrawerOpen(false)}>Cancel</button>
-            <button type="submit" className="btn primary" disabled={saving}>{saving ? "Saving…" : "Save Site"}</button>
-          </div>
-        </form>
-      </div>
+        </div>
+      )}
 
       {/* ── STOCK MODAL ───────────────────────────────────────────────── */}
       {isStockModalOpen && stockEditingSite && (

@@ -22,6 +22,8 @@ const run = db.transaction(() => {
     { id: "C-008", name: "Shell Coles Express — Albion Park", po: "",     hours: "05:00 – 23:00", contact: "Amy Ross",    phone: "0455 334 780" },
     { id: "C-009", name: "Shell Albion",                  po: "PO-45001", hours: "24 hours",       contact: "Tom Walsh",   phone: "0411 002 334" },
     { id: "C-010", name: "BP Dapto",                      po: "PO-45002", hours: "24 hours",       contact: "Nina Yap",    phone: "0433 557 991" },
+    { id: "C-011", name: "NightOwl Convenience — Figtree",po: "PO-45003", hours: "24 hours",       contact: "Sophie Anderson", phone: "0488 112 334" },
+    { id: "C-012", name: "Star Mart — Warrawong",          po: "",          hours: "05:00 – 23:00", contact: "Liam O'Connor",  phone: "0422 990 881" },
   ].forEach(c => insertCustomer.run(c));
 
   // ─── Sites ───────────────────────────────────────────────────────────────────
@@ -45,6 +47,8 @@ const run = db.transaction(() => {
     { id: "S-6140", customer_id: "C-006", name: "Coles — Wollongong Central",      suburb: "Wollongong",    status: "green",  capacity: 600, current_stock: 410, required: 0,   pallets_desc: "—",                          last_delivered: "Today 08:30",eta: "—",           scheduled: "Apr 23",  has_po: 1, emergency: 0, map_top: 42, map_left: 24, allocation_cap: 100, stock_reliability: "reliable" },
     { id: "S-7211", customer_id: "C-007", name: "Metro Petroleum — Unanderra",     suburb: "Unanderra",     status: "hold",   capacity: 480, current_stock: 120, required: 0,   pallets_desc: "—",                          last_delivered: "Apr 14",     eta: "—",           scheduled: "On hold", has_po: 0, emergency: 0, map_top: 58, map_left: 38, allocation_cap: 100, stock_reliability: "reliable" },
     { id: "S-8055", customer_id: "C-008", name: "Shell Coles Express — Albion Park",suburb: "Albion Park",  status: "orange", capacity: 360, current_stock: 144, required: 216, pallets_desc: "1 × Pallet-195 + 21",       last_delivered: "Yesterday",  eta: "Today 16:05", scheduled: "Today",   has_po: 0, emergency: 0, map_top: 76, map_left: 44, allocation_cap: 100, stock_reliability: "reliable" },
+    { id: "S-9011", customer_id: "C-011", name: "NightOwl Convenience Figtree",    suburb: "Figtree",       status: "red",    capacity: 300, current_stock: 15,  required: 285, pallets_desc: "1 × Pallet-195 + 90",       last_delivered: "3 days ago", eta: "Today 17:45", scheduled: "Today",   has_po: 1, emergency: 0, map_top: 45, map_left: 62, allocation_cap: 100, stock_reliability: "reliable" },
+    { id: "S-9012", customer_id: "C-012", name: "Star Mart Warrawong Depot",       suburb: "Warrawong",     status: "orange", capacity: 200, current_stock: 80,  required: 120, pallets_desc: "1 × Pallet-120",            last_delivered: "Yesterday",  eta: "Today 18:30", scheduled: "Today",   has_po: 0, emergency: 0, map_top: 58, map_left: 72, allocation_cap: 100, stock_reliability: "reliable" },
   ].forEach(s => insertSite.run(s));
 
   // ─── Drivers ─────────────────────────────────────────────────────────────────
@@ -63,7 +67,26 @@ const run = db.transaction(() => {
     { id: "DRV-006", name: "Sarah O'Brien",   type: "employee",   availability: "on-leave",    shift: "—",                    truck: "—",    phone: "0421 667 889", certifications: '["HC License"]',                       assigned_route: null },
     { id: "DRV-007", name: "Jake Morrison",   type: "contractor", availability: "unavailable", shift: "Off roster",           truck: "—",    phone: "0434 221 556", certifications: '["HC License"]',                       assigned_route: null },
     { id: "DRV-008", name: "Nina Patel",      type: "employee",   availability: "available",   shift: "Afternoon (12pm-8pm)", truck: "T-06", phone: "0466 332 114", certifications: '["HC License","Dangerous Goods"]',      assigned_route: null },
+    { id: "DRV-009", name: "Ethan Hunt",      type: "employee",   availability: "available",   shift: "Morning (6am-2pm)",    truck: "T-07", phone: "0412 888 999", certifications: '["HC License","Dangerous Goods","Forklift"]', assigned_route: "RT-105" },
+    { id: "DRV-010", name: "Zoe Jenkins",     type: "contractor", availability: "available",   shift: "Afternoon (12pm-8pm)", truck: "T-08", phone: "0431 777 666", certifications: '["HC License"]',                       assigned_route: null },
   ].forEach(d => insertDriver.run(d));
+
+  // ─── Vehicles ─────────────────────────────────────────────────────────────────
+  const insertVehicle = db.prepare(`
+    INSERT OR REPLACE INTO vehicles (id, code, type, capacity, status)
+    VALUES (@id, @code, @type, @capacity, @status)
+  `);
+
+  [
+    { id: "V-001", code: "T-01", type: "Refrigerated Truck", capacity: 120, status: "Active" },
+    { id: "V-002", code: "T-02", type: "Refrigerated Truck", capacity: 150, status: "Active" },
+    { id: "V-003", code: "T-03", type: "Van",                capacity: 80,  status: "Maintenance" },
+    { id: "V-004", code: "T-04", type: "Refrigerated Truck", capacity: 200, status: "Active" },
+    { id: "V-005", code: "T-05", type: "Flatbed",            capacity: 100, status: "Active" },
+    { id: "V-006", code: "T-06", type: "Refrigerated Truck", capacity: 180, status: "Active" },
+    { id: "V-007", code: "T-07", type: "Refrigerated Truck", capacity: 250, status: "Active" },
+    { id: "V-008", code: "T-08", type: "Van",                capacity: 90,  status: "Active" },
+  ].forEach(v => insertVehicle.run(v));
 
   // ─── Routes ──────────────────────────────────────────────────────────────────
   const insertRoute = db.prepare(`
@@ -77,6 +100,7 @@ const run = db.transaction(() => {
     { id: "RT-102", driver_id: "DRV-002", truck: "T-05", status: "active",    stops_total: 5, stops_done: 1, distance_km: 118, duration: "4h 05m", utilisation: 87, route_date: new Date().toISOString().split("T")[0], published: 1 },
     { id: "RT-103", driver_id: "DRV-003", truck: "T-01", status: "planned",   stops_total: 3, stops_done: 0, distance_km: 64,  duration: "2h 15m", utilisation: 72, route_date: new Date().toISOString().split("T")[0], published: 1 },
     { id: "RT-104", driver_id: "DRV-004", truck: "T-04", status: "completed", stops_total: 6, stops_done: 6, distance_km: 145, duration: "5h 10m", utilisation: 91, route_date: new Date().toISOString().split("T")[0], published: 1 },
+    { id: "RT-105", driver_id: "DRV-009", truck: "T-07", status: "planned",   stops_total: 2, stops_done: 0, distance_km: 45,  duration: "1h 45m", utilisation: 85, route_date: new Date().toISOString().split("T")[0], published: 1 },
   ].forEach(r => insertRoute.run(r));
 
   // Route stops
@@ -93,6 +117,8 @@ const run = db.transaction(() => {
     { route_id: "RT-102", site_id: "S-3021", stop_order: 1, eta: "10:40", bags: 218, status: "delivered" },
     { route_id: "RT-102", site_id: "S-6140", stop_order: 2, eta: "11:30", bags: 0,   status: "pending" },
     { route_id: "RT-102", site_id: "S-5502", stop_order: 3, eta: "12:00", bags: 0,   status: "pending" },
+    { route_id: "RT-105", site_id: "S-9011", stop_order: 1, eta: "17:45", bags: 285, status: "pending" },
+    { route_id: "RT-105", site_id: "S-9012", stop_order: 2, eta: "18:30", bags: 120, status: "pending" },
   ].forEach(s => insertStop.run(s));
 
   // ─── Products ────────────────────────────────────────────────────────────────
@@ -111,6 +137,8 @@ const run = db.transaction(() => {
     { id: "PRD-006", name: "Party Ice Mix 7kg",       sku: "ICE-7KG-PARTY", category: "Premium Ice",  unit: "Bag",   price: 6.95, cost: 3.30, stock: 890,   min_stock: 1000, status: "low-stock", pallet_qty: 150, supplier: "Crystal Ice Co" },
     { id: "PRD-007", name: "Dry Ice 5kg",             sku: "DRY-5KG-STD",   category: "Dry Ice",      unit: "Block", price: 15.00,cost: 8.50, stock: 450,   min_stock: 500,  status: "low-stock", pallet_qty: 60,  supplier: "Dry Ice Solutions" },
     { id: "PRD-008", name: "Ice Bag 20kg Commercial", sku: "ICE-20KG-COM",  category: "Commercial",   unit: "Bag",   price: 16.00,cost: 7.80, stock: 1560,  min_stock: 1000, status: "active",    pallet_qty: 65,  supplier: "IceCo Pty Ltd" },
+    { id: "PRD-009", name: "Gourmet Cocktail Ice 3kg",sku: "ICE-3KG-COCKTAIL",category: "Premium Ice", unit: "Bag",   price: 7.50, cost: 3.10, stock: 4500,  min_stock: 1500, status: "active",    pallet_qty: 250, supplier: "Crystal Ice Co" },
+    { id: "PRD-010", name: "Spherical Ice (4-pack)",  sku: "ICE-SPHERE-4P", category: "Gourmet Ice",  unit: "Box",   price: 12.95,cost: 5.50, stock: 1200,  min_stock: 500,  status: "active",    pallet_qty: 100, supplier: "Artisan Ice" },
   ].forEach(p => insertProduct.run(p));
 
   // ─── Pallets ─────────────────────────────────────────────────────────────────
@@ -127,12 +155,15 @@ const run = db.transaction(() => {
     { id: "PLT-005", type: "Premium Mix Pallet",  code: "Pallet-150", capacity: 150, dimensions: "1165 × 1165 mm", weight_kg: 750,  in_stock: 8,  last_used: "2 days ago" },
     { id: "PLT-006", type: "Dry Ice Pallet",      code: "Pallet-60",  capacity: 60,  dimensions: "800 × 1200 mm",  weight_kg: 300,  in_stock: 5,  last_used: "Yesterday" },
     { id: "PLT-007", type: "Commercial Pallet",   code: "Pallet-65",  capacity: 65,  dimensions: "1200 × 1200 mm", weight_kg: 1300, in_stock: 22, last_used: "Today" },
+    { id: "PLT-008", type: "Gourmet Ice Pallet",  code: "Pallet-250", capacity: 250, dimensions: "1165 × 1165 mm", weight_kg: 750,  in_stock: 15, last_used: "Today" },
+    { id: "PLT-009", type: "Artisan Box Pallet",  code: "Pallet-100", capacity: 100, dimensions: "800 × 1200 mm",  weight_kg: 550,  in_stock: 20, last_used: "Yesterday" },
   ].forEach(p => insertPallet.run(p));
 
   // Pallet–Product links
   const insertPalletProduct = db.prepare(`INSERT OR IGNORE INTO pallet_products (pallet_id, product_id) VALUES (?, ?)`);
   [["PLT-001","PRD-001"],["PLT-001","PRD-003"],["PLT-002","PRD-002"],["PLT-003","PRD-004"],
-   ["PLT-004","PRD-005"],["PLT-005","PRD-006"],["PLT-006","PRD-007"],["PLT-007","PRD-008"]
+   ["PLT-004","PRD-005"],["PLT-005","PRD-006"],["PLT-006","PRD-007"],["PLT-007","PRD-008"],
+   ["PLT-008","PRD-009"],["PLT-009","PRD-010"]
   ].forEach(([pid, prd]) => insertPalletProduct.run(pid, prd));
 
   // ─── Inventory Movements ─────────────────────────────────────────────────────
@@ -150,6 +181,8 @@ const run = db.transaction(() => {
     { movement_date: "2024-11-23", movement_time: "11:00 AM", type: "Stock In",    product_id: "PRD-001", product_name: "2KG Bags",    quantity: 1000, location: "Main Warehouse", recorded_by: "Admin User",       notes: "Weekly delivery" },
     { movement_date: "2024-11-22", movement_time: "03:45 PM", type: "Truck Load",  product_id: "PRD-001", product_name: "2KG Bags",    quantity: -200, location: "TR-9115",        recorded_by: "Sarah Smith",      notes: "" },
     { movement_date: "2024-11-22", movement_time: "10:20 AM", type: "Adjustment",  product_id: "PRD-007", product_name: "Dry Ice 5kg", quantity:  -10, location: "Main Warehouse", recorded_by: "Admin User",       notes: "Expired stock removed" },
+    { movement_date: "2024-11-24", movement_time: "10:30 AM", type: "Stock In",    product_id: "PRD-009", product_name: "Gourmet Cocktail Ice 3kg", quantity: 800, location: "Main Warehouse", recorded_by: "Admin User", notes: "Initial seasonal stock" },
+    { movement_date: "2024-11-24", movement_time: "11:15 AM", type: "Truck Load",  product_id: "PRD-010", product_name: "Spherical Ice (4-pack)", quantity: -40, location: "T-07", recorded_by: "Ethan Hunt", notes: "Loaded for gourmet run" },
   ].forEach(m => insertMovement.run(m));
 
   // Truck stock
@@ -161,6 +194,8 @@ const run = db.transaction(() => {
     ["TR-9115", "Sarah Smith",    320, "Active"],
     ["TR-4421", "Mike Wilson",    0,   "Returned"],
     ["TR-5580", "Elena Rodriguez",180, "Active"],
+    ["TR-7001", "Ethan Hunt",     240, "Active"],
+    ["TR-8002", "Zoe Jenkins",    90,  "Active"],
   ].forEach(r => insertTruckStock.run(...r));
 
   // ─── Invoices ────────────────────────────────────────────────────────────────
@@ -181,6 +216,8 @@ const run = db.transaction(() => {
     { id: "INV-0008", customer_id: "C-007", customer: "Unanderra",      invoice_date: "May 8",  due_days: "$0.00", subtotal: 654.00,  gst: 65.40,  total: 719.40,  status: "paid" },
     { id: "INV-0009", customer_id: "C-002", customer: "Port Kembla",    invoice_date: "May 7",  due_days: "$0.00", subtotal: 123.50,  gst: 12.35,  total: 135.85,  status: "paid" },
     { id: "INV-0010", customer_id: "C-010", customer: "Dapto",          invoice_date: "May 6",  due_days: "28d",   subtotal: 890.00,  gst: 89.00,  total: 979.00,  status: "pending" },
+    { id: "INV-0011", customer_id: "C-011", customer: "NightOwl Figtree", invoice_date: "May 19", due_days: "30d",   subtotal: 350.00,  gst: 35.00,  total: 385.00,  status: "pending" },
+    { id: "INV-0012", customer_id: "C-012", customer: "Star Mart Warrawong", invoice_date: "May 19", due_days: "$0.00", subtotal: 120.00,  gst: 12.00,  total: 132.00,  status: "paid" },
   ].forEach(i => insertInvoice.run(i));
 
   // ─── Fridges ─────────────────────────────────────────────────────────────────
@@ -198,6 +235,8 @@ const run = db.transaction(() => {
     { id: "F-5501", customer: "IGA",                branch: "Bulli",                 label: "Main Cold Room",  room: "Back of Shop",          current: 142,  total: 360,  status: "Order Soon",    status_color: "orange", active: 1 },
     { id: "F-4488", customer: "7-Eleven",           branch: "Figtree",               label: "Fridge Display",  room: "Shop Floor",            current: 188,  total: 240,  status: "Well Stocked",  status_color: "green",  active: 1 },
     { id: "F-3302", customer: "Metro Petroleum",    branch: "Unanderra",             label: "Storage Freezer", room: "Warehouse",             current: 120,  total: 480,  status: "On Hold",       status_color: "grey",   active: 0 },
+    { id: "F-2211", customer: "NightOwl Convenience",branch: "Figtree",             label: "Walk-in Display C",room: "Front of Store",        current: 15,   total: 300,  status: "Urgent — Empty",status_color: "red",    active: 1 },
+    { id: "F-2212", customer: "Star Mart",           branch: "Warrawong",            label: "Freezer Unit 7",  room: "Kiosk",                 current: 80,   total: 200,  status: "Order Soon",    status_color: "orange", active: 1 },
   ].forEach(f => insertFridge.run(f));
 
   // ─── Fuel Tanks ──────────────────────────────────────────────────────────────
@@ -211,6 +250,7 @@ const run = db.transaction(() => {
     { id: "TK-02", name: "T2: ULP98",  product: "ULP98",   color: "#ef4444", capacity: 20000, current: 3800,  water_mm: 12, status: "Critical Low" },
     { id: "TK-03", name: "T3: Diesel", product: "Diesel",  color: "#10b981", capacity: 20000, current: 11200, water_mm: 0,  status: "Normal" },
     { id: "TK-04", name: "T4: AdBlue", product: "AdBlue",  color: "#6b7280", capacity: 5000,  current: 2100,  water_mm: 0,  status: "Order Soon" },
+    { id: "TK-05", name: "T5: E10",    product: "E10",     color: "#f59e0b", capacity: 15000, current: 8500,  water_mm: 2,  status: "Normal" },
   ].forEach(t => insertTank.run(t));
 
   // ─── Daily Stats (sample) ────────────────────────────────────────────────────

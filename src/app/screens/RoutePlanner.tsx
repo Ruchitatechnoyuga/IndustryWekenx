@@ -70,15 +70,48 @@ const PlannerA = ({ drivers, sites, routes, loading, onRefresh }: { drivers: Dri
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(routes[0] ?? null);
   const [showCreateRoute, setShowCreateRoute] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [suggestedRoutes, setSuggestedRoutes] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  const handleGenerateSuggestions = async () => {
+    setLoadingSuggestions(true);
+    try {
+      const res = await routesApi.suggest();
+      setSuggestedRoutes(res.routes || []);
+    } catch (err) {
+      console.error("Failed to fetch route suggestions:", err);
+      alert("No new unassigned shipments to group. Please book a shipment first.");
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const handleApplySuggestions = async () => {
+    try {
+      for (const sug of suggestedRoutes) {
+        await routesApi.create({
+          driver_id: sug.driver_id,
+          truck: sug.truck,
+          status: "planned",
+          stops: sug.stops.map((st: any) => ({ site_id: st.site_id, bags: st.bags, eta: st.eta })),
+          stops_total: sug.stops.length,
+          utilisation: sug.utilisation
+        });
+      }
+      alert("AI Suggested Routes successfully applied and saved! 🎉");
+      setSuggestedRoutes([]);
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to save route suggestions:", err);
+      alert("Failed to apply suggestions. Please try again.");
+    }
+  };
 
   const handleConfirmRoute = async (route: Route | null) => {
     if (!route) return;
     setConfirming(true);
     try {
       await routesApi.updateStatus(route.id, "active");
-      if (route.driver_id) {
-        await driversApi.updateAvailability(route.driver_id, "on-route", route.id);
-      }
       alert(`Route ${route.id} successfully confirmed! Truck ${route.truck || ""} is now active and on route. 🚚`);
       onRefresh();
     } catch (err) {
@@ -169,8 +202,36 @@ const PlannerA = ({ drivers, sites, routes, loading, onRefresh }: { drivers: Dri
         </div>
         <div className="map" style={{ height: 560 }}>
           <svg viewBox="0 0 400 560" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-            <path d="M 168 190 L 112 348 L 192 425 L 176 302" stroke="var(--blue)" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
-            <path d="M 272 268 L 232 403" stroke="#a259ff" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
+            {routes.map((r, rIdx) => {
+              const rStops = r.stops ? [...r.stops].sort((a, b) => a.stop_order - b.stop_order) : [];
+              const rPoints = rStops.map(st => {
+                const site = sites.find(s => s.id === st.site_id);
+                return site ? { x: site.map_left ?? 50, y: site.map_top ?? 50 } : null;
+              }).filter(Boolean) as { x: number; y: number }[];
+
+              if (rPoints.length === 0) return null;
+              const d = "M 48 123 " + rPoints.map(pt => `L ${(pt.x / 100) * 400} ${(pt.y / 100) * 560}`).join(" ");
+              const isSelected = selectedRoute?.id === r.id;
+              const colors = ["var(--blue)", "#a259ff", "#14b8a6", "#f59e0b", "#ef4444"];
+              return (
+                <path 
+                  key={r.id} 
+                  d={d} 
+                  stroke={isSelected ? "var(--blue)" : colors[rIdx % colors.length]} 
+                  strokeWidth={isSelected ? "3" : "1.5"} 
+                  strokeDasharray={isSelected ? "none" : "4 4"} 
+                  fill="none" 
+                  opacity={isSelected ? 1 : 0.45}
+                  style={{ transition: "all 0.3s ease" }}
+                />
+              );
+            })}
+            {routes.length === 0 && (
+              <>
+                <path d="M 168 190 L 112 348 L 192 425 L 176 302" stroke="var(--blue)" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
+                <path d="M 272 268 L 232 403" stroke="#a259ff" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
+              </>
+            )}
           </svg>
           {sites.map(s => (
             <div key={s.id} className={`map-pin ${s.status}`} style={{ top: `${s.map_top ?? 50}%`, left: `${s.map_left ?? 50}%` }}>
@@ -193,13 +254,42 @@ const PlannerA = ({ drivers, sites, routes, loading, onRefresh }: { drivers: Dri
       {/* Route / Create Panel */}
       <div className="card" style={{ alignSelf: "start" }}>
         {routes.length === 0 ? (
-          <div className="card-body" style={{ textAlign: "center", padding: 32 }}>
+          <div className="card-body" style={{ textAlign: "center", padding: "24px 20px" }}>
             <Icon name="route" size={32} style={{ color: "var(--text-muted)", marginBottom: 12 }} />
             <div style={{ fontWeight: 600, marginBottom: 8 }}>No routes planned yet</div>
-            <div className="small muted mb-2">Add drivers and sites, then create routes to plan deliveries.</div>
-            <button className="btn primary" style={{ width: "100%" }} onClick={() => setShowCreateRoute(true)}>
-              <Icon name="plus" size={14} /> Create Route
+            <div className="small muted mb-4">Add drivers and sites, then create routes to plan deliveries.</div>
+            
+            <button className="btn primary" style={{ width: "100%", marginBottom: "16px" }} onClick={() => setShowCreateRoute(true)}>
+              <Icon name="plus" size={14} /> Create Route Manually
             </button>
+
+            <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0", paddingTop: "16px" }}>
+              <div className="small muted mb-2">Or let our AI optimize your day:</div>
+              <button 
+                className="btn secondary" 
+                style={{ width: "100%", background: "#f0fdf4", color: "#15803d", borderColor: "#bbf7d0" }} 
+                onClick={handleGenerateSuggestions} 
+                disabled={loadingSuggestions}
+              >
+                <Icon name="sparkles" size={14} /> {loadingSuggestions ? "Generating AI suggestions..." : "Generate AI Suggested Routes"}
+              </button>
+            </div>
+
+            {suggestedRoutes.length > 0 && (
+              <div className="mt-3" style={{ textAlign: "left", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                <h4 style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#475569", marginBottom: "8px", fontWeight: 700 }}>AI Optimization Preview</h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "150px", overflowY: "auto", marginBottom: "12px" }}>
+                  {suggestedRoutes.map((sug, idx) => (
+                    <div key={idx} style={{ fontSize: "11px", color: "#0f172a", borderBottom: "1px solid #f1f5f9", paddingBottom: "4px" }}>
+                      <b>{sug.driver_name}</b> ({sug.truck}): {sug.stops.length} stops, {sug.utilisation}% full.
+                    </div>
+                  ))}
+                </div>
+                <button className="btn primary" style={{ width: "100%", fontWeight: 600, background: "#16a34a", borderColor: "#16a34a" }} onClick={handleApplySuggestions}>
+                  Apply and Save AI Routes
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <>

@@ -328,20 +328,75 @@ app.post("/api/routes", (req, res) => {
   const f = req.body;
   const id = f.id || `RT-${Date.now()}`;
   try {
+    // 1. Get driver info to find assigned truck
+    const driver = db.prepare("SELECT * FROM drivers WHERE id = ?").get(f.driver_id);
+    const truckCode = f.truck || driver?.truck || "";
+
+    // 2. Lookup unassigned shipments for this driver OR this truck, or fallback to any new/queued shipments
+    let matchingShipments = db.prepare(`
+      SELECT * FROM shipments 
+      WHERE (assigned_driver_id = ? OR UPPER(pallet_type) = UPPER(?) OR ? IS NULL)
+        AND status IN ('new', 'queued')
+    `).all(f.driver_id, truckCode, f.driver_id ? null : 1);
+
+    // Fallback: If no driver-specific shipments, but there are unassigned shipments in the queue, match them to this driver's route
+    if (matchingShipments.length === 0) {
+      matchingShipments = db.prepare(`
+        SELECT * FROM shipments 
+        WHERE status IN ('new', 'queued')
+        LIMIT 4
+      `).all();
+    }
+
+    // 3. Link matching shipments to the route
+    const updateShipment = db.prepare("UPDATE shipments SET route_id = ?, status = 'assigned', assigned_driver_id = ? WHERE id = ?");
+    matchingShipments.forEach(shp => {
+      updateShipment.run(id, f.driver_id, shp.id);
+    });
+
+    // 4. Build stops from these shipments
+    // Distinct sites from shipments
+    const uniqueSites = [];
+    const siteBagsMap = {};
+    matchingShipments.forEach(shp => {
+      if (!uniqueSites.includes(shp.site_id)) {
+        uniqueSites.push(shp.site_id);
+      }
+      siteBagsMap[shp.site_id] = (siteBagsMap[shp.site_id] || 0) + shp.quantity;
+    });
+
+    const stops = uniqueSites.map((siteId, idx) => {
+      // Calculate a dummy ETA (e.g., 8:00 AM, 9:30 AM, etc.)
+      const hours = 8 + Math.floor(idx * 1.5);
+      const minutes = idx % 2 === 0 ? "00" : "30";
+      const eta = `${String(hours).padStart(2, '0')}:${minutes} ${hours >= 12 ? 'PM' : 'AM'}`;
+      return {
+        site_id: siteId,
+        bags: siteBagsMap[siteId] || 100,
+        eta: eta
+      };
+    });
+
+    const stopsTotal = stops.length;
+    const totalBags = stops.reduce((sum, s) => sum + s.bags, 0);
+
+    // Get truck capacity to calculate utilisation
+    const vehicle = db.prepare("SELECT capacity FROM vehicles WHERE code = ?").get(truckCode);
+    const capacity = vehicle ? vehicle.capacity : 200;
+    const utilisation = Math.min(100, Math.round((totalBags / capacity) * 100));
+
     db.prepare(`
       INSERT INTO routes (id, driver_id, truck, status, stops_total, stops_done, distance_km, duration, utilisation, route_date, published)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)
-    `).run(id, f.driver_id, f.truck, f.status || "planned",
-           f.stops_total || 0, 0, f.distance_km || 0, f.duration || "",
-           f.utilisation || 0, f.route_date || new Date().toISOString().split("T")[0], 0);
+    `).run(id, f.driver_id, truckCode, f.status || "planned",
+           stopsTotal, 0, stopsTotal * 12, `${Math.ceil(stopsTotal * 1.5)}h 30m`,
+           utilisation, f.route_date || new Date().toISOString().split("T")[0], 0);
 
-    // Insert stops if provided
-    if (f.stops && Array.isArray(f.stops)) {
-      const addStop = db.prepare(
-        "INSERT INTO route_stops (route_id, site_id, stop_order, eta, bags, status) VALUES (?,?,?,?,?,?)"
-      );
-      f.stops.forEach((s, i) => addStop.run(id, s.site_id, i + 1, s.eta || "", s.bags || 0, "pending"));
-    }
+    // Insert stops
+    const addStop = db.prepare(
+      "INSERT INTO route_stops (route_id, site_id, stop_order, eta, bags, status) VALUES (?,?,?,?,?,?)"
+    );
+    stops.forEach((s, i) => addStop.run(id, s.site_id, i + 1, s.eta, s.bags, "pending"));
 
     res.status(201).json({ id });
   } catch (e) {
@@ -356,11 +411,13 @@ app.post("/api/routes/publish", (req, res) => {
 
   const publishRoute = db.prepare("UPDATE routes SET published=1, status='active', updated_at=datetime('now') WHERE id=?");
   const setDriverOnRoute = db.prepare("UPDATE drivers SET availability='on-route', updated_at=datetime('now') WHERE assigned_route=?");
+  const setShipmentsInTransit = db.prepare("UPDATE shipments SET status='in-transit', updated_at=datetime('now') WHERE route_id=?");
 
   const tx = db.transaction(() => {
     route_ids.forEach(id => {
       publishRoute.run(id);
       setDriverOnRoute.run(id);
+      setShipmentsInTransit.run(id);
     });
   });
   tx();
@@ -391,8 +448,52 @@ app.patch("/api/routes/:id/status", (req, res) => {
   const { status } = req.body;
   const allowed = ["planned", "active", "completed", "cancelled"];
   if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid status" });
-  db.prepare("UPDATE routes SET status=?, updated_at=datetime('now') WHERE id=?").run(status, req.params.id);
-  res.json({ updated: true });
+
+  try {
+    const route = db.prepare("SELECT * FROM routes WHERE id=?").get(req.params.id);
+    if (!route) return res.status(404).json({ error: "Route not found" });
+
+    const tx = db.transaction(() => {
+      // 1. Update route status
+      db.prepare("UPDATE routes SET status=?, updated_at=datetime('now') WHERE id=?").run(status, req.params.id);
+
+      // 2. Cascade status updates based on transition
+      if (status === "active") {
+        // Mark all matching shipments as in-transit
+        db.prepare("UPDATE shipments SET status='in-transit', updated_at=datetime('now') WHERE route_id=?").run(req.params.id);
+        
+        // Mark driver as on-route
+        if (route.driver_id) {
+          db.prepare("UPDATE drivers SET availability='on-route', assigned_route=?, updated_at=datetime('now') WHERE id=?").run(req.params.id, route.driver_id);
+        }
+      } else if (status === "completed") {
+        // Mark all matching shipments as delivered
+        db.prepare("UPDATE shipments SET status='delivered', updated_at=datetime('now') WHERE route_id=?").run(req.params.id);
+        
+        // Mark all route stops as delivered
+        db.prepare("UPDATE route_stops SET status='delivered' WHERE route_id=?").run(req.params.id);
+        db.prepare("UPDATE routes SET stops_done=stops_total, updated_at=datetime('now') WHERE id=?").run(req.params.id);
+
+        // Revert driver availability
+        if (route.driver_id) {
+          db.prepare("UPDATE drivers SET availability='available', assigned_route=NULL, updated_at=datetime('now') WHERE id=?").run(route.driver_id);
+        }
+      } else if (status === "cancelled") {
+        // Reset all matching shipments to new, clear route_id
+        db.prepare("UPDATE shipments SET status='new', route_id=NULL, updated_at=datetime('now') WHERE route_id=?").run(req.params.id);
+        
+        // Revert driver availability
+        if (route.driver_id) {
+          db.prepare("UPDATE drivers SET availability='available', assigned_route=NULL, updated_at=datetime('now') WHERE id=?").run(route.driver_id);
+        }
+      }
+    });
+
+    tx();
+    res.json({ updated: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 
@@ -1111,7 +1212,7 @@ app.get("/api/dashboard", (_req, res) => {
 
   const sites        = db.prepare("SELECT * FROM sites ORDER BY CASE status WHEN 'red' THEN 1 WHEN 'orange' THEN 2 WHEN 'green' THEN 3 ELSE 4 END").all();
   const todayStat    = db.prepare("SELECT * FROM daily_stats WHERE stat_date=?").get(today);
-  const routes       = db.prepare("SELECT r.*, d.name as driver_name FROM routes r LEFT JOIN drivers d ON r.driver_id=d.id WHERE route_date=?").all(today);
+  const routes       = db.prepare("SELECT r.*, d.name as driver_name FROM routes r LEFT JOIN drivers d ON r.driver_id=d.id WHERE route_date=? OR r.status='active'").all(today);
   const urgentCount  = sites.filter(s => s.status === "red").length;
   const soonCount    = sites.filter(s => s.status === "orange").length;
   const activeRoutes = routes.filter(r => r.status === "active").length;

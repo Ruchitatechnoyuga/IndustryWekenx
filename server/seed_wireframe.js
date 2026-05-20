@@ -30,14 +30,16 @@ db.prepare(`
   INSERT INTO customers (id, name, po, hours, contact, phone, notes)
   VALUES 
     ('C-001', 'Woolworths Metro', 'Yes', 'Mon–Fri 6am–6pm', 'James Harrington', '0412 345 678', 'Main metro distribution center'),
-    ('C-002', 'Coles Fremantle', 'No', 'Mon–Sun 7am–10pm', 'Sandra Liu', '0498 221 009', 'Secondary delivery branch')
+    ('C-002', 'Coles Fremantle', 'No', 'Mon–Sun 7am–10pm', 'Sandra Liu', '0498 221 009', 'Secondary delivery branch'),
+    ('C-003', 'IGA Bulli', 'No', 'Mon-Sun 7am-9pm', 'Mark Petrov', '0411 665 290', 'Local grocer branch')
 `).run();
 
 db.prepare(`
   INSERT INTO sites (id, customer_id, name, suburb, status, capacity, current_stock, required, pallets_desc, last_delivered, eta, scheduled, has_po, emergency, map_top, map_left, allocation_cap, stock_reliability)
   VALUES
     ('S-001', 'C-001', 'Metro CBD', 'Melbourne CBD', 'red', 100, 10, 90, '1 × Standard Pallet', '18 May', 'Mon-Fri 6am-6pm', '23 May', 1, 1, 42.5, 68.2, 100, 'reliable'),
-    ('S-002', 'C-002', 'Coles Fremantle Central', 'Fremantle', 'orange', 120, 40, 80, '2 × Euro Pallets', '18 May', 'Mon–Fri 6am–6pm', '23 May', 1, 0, 55.1, 48.9, 100, 'reliable')
+    ('S-002', 'C-002', 'Coles Fremantle Central', 'Fremantle', 'orange', 120, 40, 80, '2 × Euro Pallets', '18 May', 'Mon–Fri 6am–6pm', '23 May', 1, 0, 55.1, 48.9, 100, 'reliable'),
+    ('S-003', 'C-003', 'IGA Bulli Main', 'Bulli', 'green', 150, 120, 30, '1 × Euro Pallet', '19 May', 'Mon-Sun 7am-9pm', '24 May', 0, 0, 48.0, 68.0, 100, 'reliable')
 `).run();
 
 // ─── STEP 2: DRIVERS & VEHICLES ──────────────────────────────────────────────
@@ -47,14 +49,16 @@ db.prepare(`
   VALUES
     ('D-001', 'Marcus Webb', 'employee', 'available', '6:00 AM - 2:00 PM', 'T-01', '0412345678', '["Heavy Vehicle","Forklift"]', 'R-001'),
     ('D-002', 'Tom Watkins', 'contractor', 'available', '2:00 PM - 10:00 PM', 'T-02', '0431887654', '["Forklift"]', NULL),
-    ('D-003', 'Priya Shah', 'employee', 'available', '10:00 AM - 6:00 PM', NULL, '0455001234', '["Refrigerated"]', NULL)
+    ('D-003', 'Priya Shah', 'employee', 'available', '10:00 AM - 6:00 PM', NULL, '0455001234', '["Refrigerated"]', NULL),
+    ('D-004', 'Ethan Hunt', 'employee', 'available', '6:00 AM - 2:00 PM', 'T-03', '0412888999', '["Heavy Vehicle","Dangerous Goods"]', NULL)
 `).run();
 
 db.prepare(`
   INSERT INTO vehicles (id, code, type, capacity, status)
   VALUES
     ('V-001', 'T-01', 'Refrigerated Truck', 100, 'Active'),
-    ('V-002', 'T-02', 'Van', 40, 'Active')
+    ('V-002', 'T-02', 'Van', 40, 'Active'),
+    ('V-003', 'T-03', 'Refrigerated Truck', 180, 'Active')
 `).run();
 
 // ─── STEP 3: PRODUCTS & PALLETS ─────────────────────────────────────────────
@@ -64,14 +68,16 @@ db.prepare(`
   VALUES
     ('P-001', 'Ice Bags 5kg', 'ICE-5KG', 'Ice', 'Bag', 5.50, 1.50, 500, 100, 'active', 80, 'ArcticStream'),
     ('P-002', 'Ice Bags 10kg', 'ICE-10KG', 'Ice', 'Bag', 9.90, 3.00, 300, 50, 'active', 60, 'ArcticStream'),
-    ('P-003', 'Block Ice', 'BLOCK-ICE', 'Ice', 'Block', 12.00, 4.50, 150, 20, 'active', 40, 'ArcticStream')
+    ('P-003', 'Block Ice', 'BLOCK-ICE', 'Ice', 'Block', 12.00, 4.50, 150, 20, 'active', 40, 'ArcticStream'),
+    ('P-004', 'Gourmet Cocktail Ice 3kg', 'ICE-3KG-COCKTAIL', 'Ice', 'Bag', 7.50, 3.10, 400, 100, 'active', 250, 'Crystal Ice')
 `).run();
 
 db.prepare(`
   INSERT INTO pallets (id, type, code, capacity, dimensions, weight_kg, in_stock, last_used)
   VALUES
     ('PA-001', 'Standard Pallet', 'PL-STD', 80, '1200x1000mm', 25.0, 150, '20 May'),
-    ('PA-002', 'Euro Pallet', 'PL-EUR', 60, '1200x800mm', 20.0, 120, '20 May')
+    ('PA-002', 'Euro Pallet', 'PL-EUR', 60, '1200x800mm', 20.0, 120, '20 May'),
+    ('PA-003', 'Gourmet Pallet', 'PL-GMR', 250, '1165x1165mm', 25.0, 50, '20 May')
 `).run();
 
 // ─── STEP 4: INVENTORY MOVEMENTS ─────────────────────────────────────────────
@@ -80,7 +86,8 @@ db.prepare(`
   INSERT INTO inventory_movements (movement_date, movement_time, type, product_id, product_name, quantity, location, recorded_by, notes)
   VALUES
     (date('now'), time('now'), 'Stock In', 'P-001', 'Ice Bags 5kg', 100, 'Warehouse', 'Admin', 'Bulk stock delivery'),
-    (date('now'), time('now'), 'Truck Load', 'P-002', 'Ice Bags 10kg', -50, 'T-01', 'Admin', 'Loaded to truck T-01')
+    (date('now'), time('now'), 'Truck Load', 'P-002', 'Ice Bags 10kg', -50, 'T-01', 'Admin', 'Loaded to truck T-01'),
+    (date('now'), time('now'), 'Stock In', 'P-004', 'Gourmet Cocktail Ice 3kg', 200, 'Warehouse', 'Admin', 'Initial gourmet stock')
 `).run();
 
 // ─── STEP 5 & 6: ROUTES & ROUTE STOPS (ACTIVE/COMPLETED STATE) ───────────────
@@ -88,13 +95,15 @@ console.log("Seeding Active/Completed Routes...");
 db.prepare(`
   INSERT INTO routes (id, driver_id, truck, status, stops_total, stops_done, distance_km, duration, utilisation, route_date, published)
   VALUES
-    ('R-001', 'D-001', 'T-01', 'completed', 1, 1, 14.5, '1h 20m', 75, date('now'), 1)
+    ('R-001', 'D-001', 'T-01', 'completed', 1, 1, 14.5, '1h 20m', 75, date('now'), 1),
+    ('R-002', 'D-004', 'T-03', 'planned', 1, 0, 32.0, '1h 00m', 80, date('now'), 1)
 `).run();
 
 db.prepare(`
   INSERT INTO route_stops (route_id, site_id, stop_order, eta, bags, status)
   VALUES
-    ('R-001', 'S-001', 1, '10:30 AM', 30, 'delivered')
+    ('R-001', 'S-001', 1, '10:30 AM', 30, 'delivered'),
+    ('R-002', 'S-003', 1, '11:00 AM', 20, 'pending')
 `).run();
 
 // ─── STEP 7: INVOICES ────────────────────────────────────────────────────────
@@ -102,13 +111,15 @@ console.log("Seeding Invoices...");
 db.prepare(`
   INSERT INTO invoices (id, customer_id, customer, invoice_date, due_days, subtotal, gst, total, status, notes)
   VALUES
-    ('INV-001', 'C-001', 'Woolworths Metro', date('now'), '30d', 500, 50, 550, 'paid', 'Auto-created from delivered route')
+    ('INV-001', 'C-001', 'Woolworths Metro', date('now'), '30d', 500, 50, 550, 'paid', 'Auto-created from delivered route'),
+    ('INV-002', 'C-003', 'IGA Bulli', date('now'), '30d', 150, 15, 165, 'pending', 'Auto-created from pending route')
 `).run();
 
 db.prepare(`
   INSERT INTO invoice_items (invoice_id, description, product_id, quantity, unit_price, line_total)
   VALUES
-    ('INV-001', 'Ice delivery - Metro CBD', 'P-001', 1, 500, 500)
+    ('INV-001', 'Ice delivery - Metro CBD', 'P-001', 1, 500, 500),
+    ('INV-002', 'Gourmet ice delivery', 'P-004', 20, 7.50, 150)
 `).run();
 
 // ─── STEP 8: REPORTS / DAILY SNAPSHOT ────────────────────────────────────────
@@ -124,7 +135,8 @@ console.log("Seeding Fridges...");
 db.prepare(`
   INSERT INTO fridges (id, customer, branch, label, room, current, total, status, status_color, active)
   VALUES
-    ('FR-001', 'Woolworths Metro', 'CBD', 'F-01', 'Main Floor', 20, 50, 'Order Soon', 'orange', 1)
+    ('FR-001', 'Woolworths Metro', 'CBD', 'F-01', 'Main Floor', 20, 50, 'Order Soon', 'orange', 1),
+    ('FR-002', 'IGA', 'Bulli', 'F-02', 'Backroom Freezer', 120, 150, 'Well Stocked', 'green', 1)
 `).run();
 
 // ─── STEP 10: FUEL TANKS (SPACE INPUT) ────────────────────────────────────────
@@ -132,13 +144,15 @@ console.log("Seeding Fuel Tanks & Space Readings...");
 db.prepare(`
   INSERT INTO fuel_tanks (id, name, product, color, capacity, current, water_mm, status)
   VALUES
-    ('FT-001', 'T1: ULP91', 'ULP91', '#0284c7', 20000, 6000, 5, 'Normal')
+    ('FT-001', 'T1: ULP91', 'ULP91', '#0284c7', 20000, 6000, 5, 'Normal'),
+    ('FT-002', 'T2: ULP98', 'ULP98', '#ef4444', 15000, 3000, 2, 'Critical Low')
 `).run();
 
 db.prepare(`
   INSERT INTO space_readings (tank_id, reading, water_mm, recorded_by, notes)
   VALUES
-    ('FT-001', 6000, 5, 'Admin', 'Daily manual tank volume reading')
+    ('FT-001', 6000, 5, 'Admin', 'Daily manual tank volume reading'),
+    ('FT-002', 3000, 2, 'Admin', 'Daily manual ULP98 reading')
 `).run();
 
 db.pragma("foreign_keys = ON"); // Re-enable keys

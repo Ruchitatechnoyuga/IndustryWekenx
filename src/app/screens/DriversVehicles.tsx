@@ -9,6 +9,46 @@ const initials = (name: string) => name.split(" ").map((n:string) => n[0]).join(
 
 export const DriversVehicles = () => {
   const [activeTab, setActiveTab] = useState<"drivers"|"vehicles">("drivers");
+  
+  // ── Collapsible Panel States (Add Vehicle Drawer) ──
+  const [isVhDetailsOpen, setIsVhDetailsOpen] = useState(true);
+  const [isVhStatusOpen, setIsVhStatusOpen] = useState(true);
+
+  // ── Collapsible Panel States (Add Driver Drawer) ──
+  const [isDrPersonalOpen, setIsDrPersonalOpen] = useState(true);
+  const [isDrAssignmentOpen, setIsDrAssignmentOpen] = useState(true);
+  const [isDrAvailabilityOpen, setIsDrAvailabilityOpen] = useState(true);
+
+  // ── Quick Fill Helper for Vehicles ──
+  const handleQuickFillVehicle = () => {
+    const examples = [
+      { code: "T-07", type: "Refrigerated Truck", capacity: 160, status: "Active" },
+      { code: "T-08", type: "Van",                capacity: 90,  status: "Active" },
+      { code: "T-09", type: "Flatbed",            capacity: 120, status: "Maintenance" }
+    ];
+    const pick = examples[Math.floor(Math.random() * examples.length)];
+    setVhCode(pick.code);
+    setVhType(pick.type);
+    setVhCap(pick.capacity);
+    setVhStatus(pick.status);
+  };
+
+  // ── Quick Fill Helper for Drivers ──
+  const handleQuickFillDriver = () => {
+    const examples = [
+      { name: "Robert Miller", type: "Employee", phone: "412 882 119", shift: "6:00 AM – 2:00 PM", certs: ["Heavy Vehicle", "Forklift"], availability: "Available" },
+      { name: "Jessica Taylor", type: "Employee", phone: "432 990 411", shift: "8:00 AM – 4:00 PM", certs: ["Heavy Vehicle", "Refrigerated"], availability: "Available" },
+      { name: "David Vance", type: "Contractor", phone: "466 771 223", shift: "6:00 AM – 2:00 PM", certs: ["Dangerous Goods"], availability: "Available" }
+    ];
+    const pick = examples[Math.floor(Math.random() * examples.length)];
+    setDrName(pick.name);
+    setDrType(pick.type);
+    setDrPhone(pick.phone);
+    setDrShift(pick.shift);
+    setDrCerts(pick.certs);
+    setDrStatus(pick.availability);
+  };
+
   const [drivers, setDrivers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +163,139 @@ export const DriversVehicles = () => {
     .sch.on{background:#f0f9ff;border-color:#0EA5E9;color:#075985;}
     .sstrip{margin-top:18px;padding:12px 18px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;align-items:center;gap:16px;font-size:13px;font-weight:500;color:var(--text-muted);}
     .sdot{width:5px;height:5px;border-radius:50%;background:var(--border-strong);}
+
+    /* Collapsible Form Section Styling matching reference design */
+    .premium-card {
+      background: #ffffff;
+      border: 1px solid #dde3ea;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      margin-bottom: 16px;
+      transition: all 0.2s ease;
+    }
+    .premium-card:hover {
+      border-color: #cbd5e1;
+    }
+    .premium-header {
+      background-color: #f0f6ff !important;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .premium-header h3 {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #1e3a8a !important; /* Bold navy */
+    }
+    .premium-toggle-icon {
+      color: #1e3a8a;
+      font-size: 12px;
+      font-weight: bold;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .premium-toggle-icon.collapsed {
+      transform: rotate(180deg);
+    }
+    .premium-body {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: #ffffff;
+    }
+    .premium-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 6px;
+    }
+    .premium-label .required {
+      color: #ef4444;
+      margin-left: 3px;
+    }
+    .premium-input {
+      width: 100%;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 6px !important;
+      padding: 9px 12px !important;
+      font-size: 13.5px !important;
+      color: #0f172a !important;
+      background-color: #ffffff !important;
+      transition: all 0.15s ease-in-out;
+    }
+    .premium-input:focus {
+      border-color: #0ea5e9 !important;
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15) !important;
+      outline: none !important;
+    }
+    .premium-input::placeholder {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .quick-fill-btn {
+      background-color: #f0fdf4 !important;
+      border: 1px solid #bbf7d0 !important;
+      color: #15803d !important;
+      font-weight: 600 !important;
+      font-size: 12px !important;
+      padding: 6px 12px !important;
+      border-radius: 6px !important;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .quick-fill-btn:hover {
+      background-color: #dcfce7 !important;
+      border-color: #86efac !important;
+    }
+    
+    /* Custom Flags / Selectors */
+    .phone-input-group {
+      display: flex;
+      align-items: center;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 6px !important;
+      overflow: hidden;
+      background-color: #ffffff;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+    .phone-input-group:focus-within {
+      border-color: #0ea5e9 !important;
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15) !important;
+    }
+    .flag-dropdown {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background-color: #f8fafc;
+      border-right: 1px solid #cbd5e1;
+      font-size: 14px;
+      font-weight: 500;
+      color: #475569;
+      user-select: none;
+    }
+    .phone-input-group input {
+      border: none !important;
+      box-shadow: none !important;
+      padding: 9px 12px !important;
+      flex: 1;
+      font-size: 13.5px !important;
+      color: #0f172a !important;
+      background-color: transparent !important;
+    }
   `;
 
   return (
@@ -218,76 +391,136 @@ export const DriversVehicles = () => {
         <span style={{color:"#0ea5e9"}}>{drivers.filter(d=>d.availability==="on-route").length} on route</span>
       </div>
 
-      {/* DRIVER DRAWER */}
-      <div className={`dro ${isDriverOpen?"open":""}`} onClick={()=>setIsDriverOpen(false)}/>
-      <div className={`drc ${isDriverOpen?"open":""}`}>
-        <form onSubmit={saveDriver} style={{display:"flex",flexDirection:"column",height:"100%"}}>
-          <div className="drh"><h2>{editDr?"Edit Driver":"Add New Driver"}</h2><button type="button" className="btn ghost icon" onClick={()=>setIsDriverOpen(false)}><Icon name="x" size={15}/></button></div>
-          <div className="drb">
-            <div className="drs">
-              <div className="drst">Personal Details</div>
-              <div className="field"><label>Full Name *</label><input required placeholder="e.g. Marcus Webb" value={drName} onChange={e=>setDrName(e.target.value)}/></div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                <div className="field"><label>Type</label><select value={drType} onChange={e=>setDrType(e.target.value)}><option>Employee</option><option>Contractor</option></select></div>
-                <div className="field"><label>Phone</label><input placeholder="0412 345 678" value={drPhone} onChange={e=>setDrPhone(e.target.value)}/></div>
+      {/* DRIVER MODAL */}
+      {isDriverOpen && (
+        <div className="modal-overlay" onClick={() => setIsDriverOpen(false)} style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,23,42,0.3)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ background:"#fff",borderRadius:12,width:540,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 25px 50px -12px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column" }}>
+            <form onSubmit={saveDriver} style={{ display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
+              <div style={{ padding:"16px 24px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <h2 style={{ fontSize:17,fontWeight:700,margin:0 }}>{editDr ? "Edit Driver Details" : "Add New Driver"}</h2>
+                <button type="button" onClick={() => setIsDriverOpen(false)} style={{ background:"none",border:"none",cursor:"pointer" }}><Icon name="x" size={18} /></button>
               </div>
-              <div className="field"><label>Shift Hours</label><input placeholder="6:00 AM – 2:00 PM" value={drShift} onChange={e=>setDrShift(e.target.value)}/></div>
-            </div>
-            <div className="drs">
-              <div className="drst">Vehicle Assignment</div>
-              <div className="field"><label>Assign Truck</label>
-                <select value={drTruck} onChange={e=>setDrTruck(e.target.value)}>
-                  <option value="">— None —</option>
-                  {vehicles.map(v=><option key={v.id} value={v.code}>{v.code} ({v.capacity} bags – {v.type})</option>)}
-                </select>
+              <div style={{ padding: 24 }}>
+                {!editDr && (
+                  <div style={{ marginBottom: "16px", display: "flex", justifyContent: "flex-end" }}>
+                    <button type="button" className="quick-fill-btn" onClick={handleQuickFillDriver}>
+                      <Icon name="zap" size={14} /> Quick Fill Example Data
+                    </button>
+                  </div>
+                )}
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Full Name *</label>
+                    <input required className="input" placeholder="e.g. Marcus Webb" value={drName} onChange={e=>setDrName(e.target.value)}/>
+                  </div>
+                  <div className="field">
+                    <label>Type *</label>
+                    <select className="select" value={drType} onChange={e=>setDrType(e.target.value)}>
+                      <option>Employee</option>
+                      <option>Contractor</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Phone *</label>
+                    <div className="phone-input-group">
+                      <div className="flag-dropdown">
+                        <span>🇦🇺</span>
+                        <span>+61</span>
+                      </div>
+                      <input type="text" required placeholder="e.g. 412 345 678" value={drPhone} onChange={e=>setDrPhone(e.target.value)}/>
+                    </div>
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Shift Hours *</label>
+                    <input required className="input" placeholder="e.g. 6:00 AM – 2:00 PM" value={drShift} onChange={e=>setDrShift(e.target.value)}/>
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Assign Truck</label>
+                    <select className="select" value={drTruck} onChange={e=>setDrTruck(e.target.value)}>
+                      <option value="">— None —</option>
+                      {vehicles.map(v=><option key={v.id} value={v.code}>{v.code} ({v.capacity} bags – {v.type})</option>)}
+                    </select>
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Certifications / Qualifications</label>
+                    <div className="cgrid" style={{ display:"flex",flexWrap:"wrap",gap:6,marginTop:4 }}>{CERTS.map(c=><span key={c} className={`sch ${drCerts.includes(c)?"on":""}`} onClick={()=>toggleCert(c)}>{c}</span>)}</div>
+                  </div>
+                  <div className="field" style={{ gridColumn: "1/-1" }}>
+                    <label>Status *</label>
+                    <select className="select" value={drStatus} onChange={e=>setDrStatus(e.target.value)}>
+                      <option>Available</option>
+                      <option>On Route</option>
+                      <option>On Leave</option>
+                      <option>Unavailable</option>
+                    </select>
+                  </div>
+                </div>
+                <p style={{ fontSize:11.5,color:"var(--text-subtle)",fontStyle:"italic",marginTop:14,marginBottom:0 }}>💡 Route assignment is managed in Route Planning.</p>
               </div>
-              <div className="field"><label>Certifications</label>
-                <div className="cgrid">{CERTS.map(c=><span key={c} className={`sch ${drCerts.includes(c)?"on":""}`} onClick={()=>toggleCert(c)}>{c}</span>)}</div>
+              <div style={{ padding:"14px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:8,background:"#fff" }}>
+                <button type="button" className="btn" onClick={()=>setIsDriverOpen(false)}>Cancel</button>
+                <button type="submit" className="btn primary" disabled={saving}>{saving?"Saving…":"Save Driver"}</button>
               </div>
-            </div>
-            <div className="drs">
-              <div className="drst">Availability</div>
-              <div className="field"><label>Status</label>
-                <select value={drStatus} onChange={e=>setDrStatus(e.target.value)}><option>Available</option><option>On Route</option><option>On Leave</option><option>Unavailable</option></select>
-              </div>
-            </div>
-            <p style={{fontSize:11.5,color:"var(--text-subtle)",fontStyle:"italic",margin:0}}>💡 Route assignment is managed in Route Planning.</p>
+            </form>
           </div>
-          <div className="drf">
-            <button type="button" className="btn ghost" onClick={()=>setIsDriverOpen(false)}>Cancel</button>
-            <button type="submit" className="btn primary" disabled={saving}>{saving?"Saving…":"Save Driver"}</button>
-          </div>
-        </form>
-      </div>
+        </div>
+      )}
 
-      {/* VEHICLE DRAWER */}
-      <div className={`dro ${isVehicleOpen?"open":""}`} onClick={()=>setIsVehicleOpen(false)}/>
-      <div className={`drc ${isVehicleOpen?"open":""}`}>
-        <form onSubmit={saveVehicle} style={{display:"flex",flexDirection:"column",height:"100%"}}>
-          <div className="drh"><h2>{editVh?"Edit Vehicle":"Add New Vehicle"}</h2><button type="button" className="btn ghost icon" onClick={()=>setIsVehicleOpen(false)}><Icon name="x" size={15}/></button></div>
-          <div className="drb">
-            <div className="drs">
-              <div className="drst">Vehicle Details</div>
-              <div className="field"><label>Vehicle Code *</label><input required placeholder="e.g. T-06" value={vhCode} onChange={e=>setVhCode(e.target.value)}/></div>
-              <div className="field"><label>Vehicle Type</label>
-                <select value={vhType} onChange={e=>setVhType(e.target.value)}><option>Refrigerated Truck</option><option>Van</option><option>Flatbed</option></select>
+      {/* VEHICLE MODAL */}
+      {isVehicleOpen && (
+        <div className="modal-overlay" onClick={() => setIsVehicleOpen(false)} style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,23,42,0.3)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ background:"#fff",borderRadius:12,width:460,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 25px 50px -12px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column" }}>
+            <form onSubmit={saveVehicle} style={{ display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
+              <div style={{ padding:"16px 24px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <h2 style={{ fontSize:17,fontWeight:700,margin:0 }}>{editVh ? "Edit Vehicle Details" : "Add New Vehicle"}</h2>
+                <button type="button" onClick={() => setIsVehicleOpen(false)} style={{ background:"none",border:"none",cursor:"pointer" }}><Icon name="x" size={18} /></button>
               </div>
-              <div className="field"><label>Capacity (bags)</label><input type="number" min={1} value={vhCap} onChange={e=>setVhCap(Number(e.target.value))}/></div>
-            </div>
-            <div className="drs">
-              <div className="drst">Fleet Status</div>
-              <div className="field"><label>Status</label>
-                <select value={vhStatus} onChange={e=>setVhStatus(e.target.value)}><option>Active</option><option>On Road</option><option>Maintenance</option><option>Inactive</option></select>
+              <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+                {!editVh && (
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button type="button" className="quick-fill-btn" onClick={handleQuickFillVehicle}>
+                      <Icon name="zap" size={14} /> Quick Fill Example Data
+                    </button>
+                  </div>
+                )}
+                
+                <div className="field">
+                  <label>Vehicle Code *</label>
+                  <input required className="input" placeholder="e.g. T-07" value={vhCode} onChange={e=>setVhCode(e.target.value)}/>
+                </div>
+                <div className="field">
+                  <label>Vehicle Type</label>
+                  <select className="select" value={vhType} onChange={e=>setVhType(e.target.value)}>
+                    <option>Refrigerated Truck</option>
+                    <option>Van</option>
+                    <option>Flatbed</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Capacity (bags) *</label>
+                  <input type="number" className="input" min={1} value={vhCap} onChange={e=>setVhCap(Number(e.target.value))}/>
+                </div>
+                <div className="field">
+                  <label>Status</label>
+                  <select className="select" value={vhStatus} onChange={e=>setVhStatus(e.target.value)}>
+                    <option>Active</option>
+                    <option>On Road</option>
+                    <option>Maintenance</option>
+                    <option>Inactive</option>
+                  </select>
+                </div>
+                
+                <p style={{ fontSize:11.5,color:"var(--text-subtle)",fontStyle:"italic",marginTop:4,marginBottom:0 }}>💡 Driver & route assignment is managed in Route Planning.</p>
               </div>
-            </div>
-            <p style={{fontSize:11.5,color:"var(--text-subtle)",fontStyle:"italic",margin:0}}>💡 Driver & route assignment is managed in Route Planning.</p>
+              <div style={{ padding:"14px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:8,background:"#fff" }}>
+                <button type="button" className="btn" onClick={()=>setIsVehicleOpen(false)}>Cancel</button>
+                <button type="submit" className="btn primary" disabled={saving}>{saving?"Saving…":"Save Vehicle"}</button>
+              </div>
+            </form>
           </div>
-          <div className="drf">
-            <button type="button" className="btn ghost" onClick={()=>setIsVehicleOpen(false)}>Cancel</button>
-            <button type="submit" className="btn primary" disabled={saving}>{saving?"Saving…":"Save Vehicle"}</button>
-          </div>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
