@@ -334,7 +334,7 @@ export const vehiclesApi = {
 };
 
 export const shipmentsApi = {
-  list:   (status?: string) => DEMO ? mock([] as Shipment[]) : get<Shipment[]>(`/shipments${status ? `?status=${status}` : ""}`),
+  list:   (status?: string) => DEMO ? mock(MOCK.MOCK_SHIPMENTS as any) : get<Shipment[]>(`/shipments${status ? `?status=${status}` : ""}`),
   get:    (id: string)      => get<Shipment>(`/shipments/${id}`),
   create: (data: Partial<Shipment>) => DEMO ? mock({ id:"SHP-NEW" }) : post<{ id: string }>("/shipments", data),
   updateStatus: (id: string, status: string, route_id?: string | null) =>

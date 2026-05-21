@@ -119,24 +119,186 @@ const TrackingA = ({ routes, loading, onRefresh }: { routes: Route[]; loading: b
           </div>
         </div>
         <div className="map" style={{ height: 500 }}>
-          <svg viewBox="0 0 400 500" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-            <path d="M 48 110 L 168 170 L 112 310" stroke="var(--text-muted)" strokeWidth="2" strokeDasharray="3 3" fill="none" />
-            <path d="M 112 310 L 192 380 L 176 270" stroke="var(--blue)" strokeWidth="2.5" fill="none" />
-            <circle cx="176" cy="270" r="28" fill="rgba(59, 65, 112, 0.08)" stroke="var(--blue)" strokeDasharray="4 4" />
-          </svg>
-          <div className="map-pin green" style={{ top: "22%", left: "12%" }}>✓</div>
-          <div className="map-pin green" style={{ top: "34%", left: "42%" }}>✓</div>
-          {selected?.status === "active" && <div className="map-pin truck" style={{ top: "54%", left: "44%" }}>T</div>}
+          {selected && (() => {
+            // Build stop coordinates from mock site positions
+            const SITE_COORDS: Record<string, { top: number; left: number }> = {
+              "S-001": { top: 42, left: 38 },
+              "S-002": { top: 62, left: 55 },
+              "S-003": { top: 35, left: 62 },
+              "S-004": { top: 28, left: 45 },
+            };
+            const orderedStops = selected.stops ? [...selected.stops].sort((a, b) => a.stop_order - b.stop_order) : [];
+            // Coordinates: warehouse origin + each stop site
+            const warehousePt = { x: 48, y: 110 }; // 12%×400, 22%×500
+            const stopPts = orderedStops.map(st => {
+              const coord = SITE_COORDS[st.site_id];
+              return coord ? { x: (coord.left / 100) * 400, y: (coord.top / 100) * 500 } : null;
+            }).filter(Boolean) as { x: number; y: number }[];
+            const allPts = [warehousePt, ...stopPts];
+
+            // Build smooth bezier path for all stops
+            const buildPath = (pts: { x: number; y: number }[]) => {
+              if (pts.length < 2) return "";
+              let d = `M ${pts[0].x} ${pts[0].y}`;
+              for (let i = 1; i < pts.length; i++) {
+                const prev = pts[i - 1];
+                const curr = pts[i];
+                const mx = (prev.x + curr.x) / 2;
+                const my = (prev.y + curr.y) / 2;
+                d += ` Q ${mx} ${my} ${curr.x} ${curr.y}`;
+              }
+              return d;
+            };
+
+            // Split into completed path and upcoming path
+            const completedPts = allPts.slice(0, selected.stops_done + 1);
+            const upcomingPts = allPts.slice(Math.max(0, selected.stops_done));
+            const completedPath = buildPath(completedPts);
+            const upcomingPath = buildPath(upcomingPts);
+
+            // Current truck position: slightly past the last completed stop
+            const truckPt = selected.stops_done > 0 && allPts[selected.stops_done]
+              ? allPts[selected.stops_done]
+              : selected.stops_done === 0 && allPts[1]
+              ? { x: (warehousePt.x + allPts[1].x) / 2, y: (warehousePt.y + allPts[1].y) / 2 }
+              : warehousePt;
+
+            return (
+              <>
+                <svg viewBox="0 0 400 500" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+                  <defs>
+                    <filter id="glow-green">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                  </defs>
+                  {/* Completed portion — solid green */}
+                  {completedPath && (
+                    <path d={completedPath} stroke="var(--green)" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  )}
+                  {/* Upcoming portion — dashed blue */}
+                  {upcomingPath && (
+                    <path d={upcomingPath} stroke="var(--blue)" strokeWidth="2" strokeDasharray="6 4" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+                  )}
+                  {/* Geofence around current truck */}
+                  {selected.status === "active" && (
+                    <circle cx={truckPt.x} cy={truckPt.y} r="30" fill="rgba(59, 65, 112, 0.07)" stroke="var(--blue)" strokeWidth="1.5" strokeDasharray="4 3" />
+                  )}
+                </svg>
+
+                {/* Stop pins — rendered as React divs */}
+                {/* Warehouse */}
+                <div style={{ position: "absolute", top: "22%", left: "12%", transform: "translate(-50%,-50%)", zIndex: 6 }}>
+                  <div className="map-pin truck" style={{ fontSize: 10 }}>W</div>
+                </div>
+
+                {orderedStops.map((stop, i) => {
+                  const coord = SITE_COORDS[stop.site_id];
+                  if (!coord) return null;
+                  const isDone = stop.status === "delivered";
+                  const isCurrent = i === selected.stops_done && selected.status === "active";
+                  const isUpcoming = !isDone && !isCurrent;
+                  return (
+                    <div key={stop.id} style={{
+                      position: "absolute",
+                      top: `${coord.top}%`, left: `${coord.left}%`,
+                      transform: "translate(-50%,-50%)", zIndex: 5
+                    }}>
+                      {/* Pin */}
+                      <div className={`map-pin ${isDone ? "green" : isCurrent ? "truck" : ""}`} style={{
+                        border: isUpcoming ? "2px dashed #94a3b8" : undefined,
+                        background: isUpcoming ? "white" : undefined,
+                        color: isUpcoming ? "#64748b" : undefined,
+                        boxShadow: isCurrent ? "0 0 0 4px rgba(59,130,246,0.25)" : undefined,
+                        fontSize: 11, fontWeight: 700
+                      }}>
+                        {isDone ? "✓" : i + 1}
+                      </div>
+                      {/* Stop name label */}
+                      <div style={{
+                        position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
+                        marginTop: 3, background: "rgba(255,255,255,0.93)",
+                        border: `1px solid ${isDone ? "var(--green)" : isCurrent ? "var(--blue)" : "var(--border)"}`,
+                        borderRadius: 4, padding: "2px 6px", fontSize: 9, fontWeight: 600,
+                        color: isDone ? "var(--green)" : isCurrent ? "var(--blue)" : "var(--text-muted)",
+                        whiteSpace: "nowrap", boxShadow: "0 1px 3px rgba(0,0,0,0.08)"
+                      }}>
+                        {stop.site_name?.replace("Shell ", "").replace("7-Eleven ", "")} · {stop.bags}bg
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Live truck marker */}
+                {selected.status === "active" && (
+                  <div style={{
+                    position: "absolute",
+                    top: `${(truckPt.y / 500) * 100}%`,
+                    left: `${(truckPt.x / 400) * 100}%`,
+                    transform: "translate(-50%,-50%)", zIndex: 8
+                  }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: "50%",
+                      background: "var(--navy-deep)", color: "white",
+                      display: "grid", placeItems: "center", fontSize: 14,
+                      boxShadow: "0 0 0 5px rgba(59,65,112,0.25), 0 2px 8px rgba(0,0,0,0.3)",
+                      animation: "ping 2s ease-in-out infinite"
+                    }}>
+                      🚚
+                    </div>
+                  </div>
+                )}
+
+                {/* Info overlay */}
+                <div style={{
+                  position: "absolute", top: 12, right: 12,
+                  background: "white", borderRadius: 8, padding: "10px 12px",
+                  border: "1px solid var(--border)", minWidth: 170, boxShadow: "var(--shadow-sm)"
+                }}>
+                  {selected.status === "active" ? (
+                    <>
+                      <div className="small muted">Current location</div>
+                      <div style={{ fontWeight: 600 }}>
+                        {orderedStops[selected.stops_done]?.site_name || "En route"}
+                      </div>
+                      <div className="small muted mt-1">Stop {selected.stops_done + 1} of {selected.stops_total}</div>
+                      <div className="small muted">ETA: <span className="mono">{orderedStops[selected.stops_done]?.eta || "—"}</span></div>
+                      <div className="small muted">Util: <span className="mono">{selected.utilisation}%</span></div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="small muted">Route status</div>
+                      <div style={{ fontWeight: 600 }}>{selected.status.charAt(0).toUpperCase() + selected.status.slice(1)}</div>
+                      <div className="small muted mt-1">Util: <span className="mono">{selected.utilisation}%</span></div>
+                    </>
+                  )}
+                </div>
+
+                {/* Legend */}
+                <div style={{
+                  position: "absolute", bottom: 12, left: 12,
+                  background: "rgba(255,255,255,0.93)", borderRadius: 6,
+                  padding: "6px 10px", border: "1px solid var(--border)",
+                  boxShadow: "var(--shadow-sm)", fontSize: 10, display: "flex", flexDirection: "column", gap: 3
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 16, height: 2, background: "var(--green)", borderRadius: 2 }} />
+                    <span style={{ color: "var(--text-muted)" }}>Completed</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 16, height: 2, background: "var(--blue)", borderRadius: 2, borderTop: "2px dashed var(--blue)", background: "transparent" as any }} />
+                    <span style={{ color: "var(--text-muted)" }}>Upcoming</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+
           {!selected && !loading && (
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>
               Select a route from the list to view live tracking
             </div>
           )}
-          <div style={{ position: "absolute", top: 12, right: 12, background: "white", borderRadius: 8, padding: "10px 12px", border: "1px solid var(--border)", minWidth: 170, boxShadow: "var(--shadow-sm)" }}>
-            <div className="small muted">Route status</div>
-            <div style={{ fontWeight: 600 }}>{selected ? selected.status.charAt(0).toUpperCase() + selected.status.slice(1) : "—"}</div>
-            {selected && <div className="small muted mt-1">Util: <span className="mono">{selected.utilisation}%</span></div>}
-          </div>
         </div>
       </div>
 

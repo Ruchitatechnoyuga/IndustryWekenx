@@ -201,7 +201,14 @@ const PlannerA = ({ drivers, sites, routes, loading, onRefresh }: { drivers: Dri
           </div>
         </div>
         <div className="map" style={{ height: 560 }}>
+          {/* Route path SVG */}
           <svg viewBox="0 0 400 560" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            {/* Drop shadow filter */}
+            <defs>
+              <filter id="route-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.2" />
+              </filter>
+            </defs>
             {routes.map((r, rIdx) => {
               const rStops = r.stops ? [...r.stops].sort((a, b) => a.stop_order - b.stop_order) : [];
               const rPoints = rStops.map(st => {
@@ -210,39 +217,113 @@ const PlannerA = ({ drivers, sites, routes, loading, onRefresh }: { drivers: Dri
               }).filter(Boolean) as { x: number; y: number }[];
 
               if (rPoints.length === 0) return null;
-              const d = "M 48 123 " + rPoints.map(pt => `L ${(pt.x / 100) * 400} ${(pt.y / 100) * 560}`).join(" ");
               const isSelected = selectedRoute?.id === r.id;
               const colors = ["var(--blue)", "#a259ff", "#14b8a6", "#f59e0b", "#ef4444"];
+              const color = isSelected ? "var(--blue)" : colors[rIdx % colors.length];
+              // Build smooth path using quadratic bezier midpoints
+              const pts = [{ x: 12, y: 22 }, ...rPoints]; // warehouse at 12%,22%
+              let d = `M ${(pts[0].x / 100) * 400} ${(pts[0].y / 100) * 560}`;
+              for (let i = 1; i < pts.length; i++) {
+                const prev = pts[i - 1];
+                const curr = pts[i];
+                const mx = ((prev.x + curr.x) / 2 / 100) * 400;
+                const my = ((prev.y + curr.y) / 2 / 100) * 560;
+                d += ` Q ${mx} ${my} ${(curr.x / 100) * 400} ${(curr.y / 100) * 560}`;
+              }
               return (
-                <path 
-                  key={r.id} 
-                  d={d} 
-                  stroke={isSelected ? "var(--blue)" : colors[rIdx % colors.length]} 
-                  strokeWidth={isSelected ? "3" : "1.5"} 
-                  strokeDasharray={isSelected ? "none" : "4 4"} 
-                  fill="none" 
-                  opacity={isSelected ? 1 : 0.45}
-                  style={{ transition: "all 0.3s ease" }}
-                />
+                <g key={r.id}>
+                  {/* Route shadow */}
+                  <path d={d} stroke={color} strokeWidth={isSelected ? "5" : "3"} fill="none" opacity="0.12" filter="url(#route-shadow)" />
+                  {/* Route line */}
+                  <path d={d} stroke={color} strokeWidth={isSelected ? "2.5" : "1.5"} strokeDasharray={r.status === "planned" ? "6 4" : "none"} fill="none" opacity={isSelected ? 1 : 0.5} style={{ transition: "all 0.3s ease" }} />
+                </g>
               );
             })}
+            {/* Fallback demo routes when no real routes */}
             {routes.length === 0 && (
               <>
-                <path d="M 168 190 L 112 348 L 192 425 L 176 302" stroke="var(--blue)" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
-                <path d="M 272 268 L 232 403" stroke="#a259ff" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
+                <path d="M 48 123 Q 113 140 180 157 Q 166 196 152 235" stroke="var(--blue)" strokeWidth="2.5" strokeDasharray="6 4" fill="none" />
+                <path d="M 152 235 Q 198 216 248 196 Q 234 272 220 347" stroke="var(--blue)" strokeWidth="2.5" strokeDasharray="6 4" fill="none" opacity="0.5" />
+                <path d="M 48 123 Q 198 158 248 196" stroke="#a259ff" strokeWidth="2" strokeDasharray="5 4" fill="none" opacity="0.6" />
               </>
             )}
           </svg>
-          {sites.map(s => (
-            <div key={s.id} className={`map-pin ${s.status}`} style={{ top: `${s.map_top ?? 50}%`, left: `${s.map_left ?? 50}%` }}>
-              {s.id.slice(-2)}
+
+          {/* Site pins — show stop order badge if on a route */}
+          {sites.map(s => {
+            // Find which stop this site is on the selected route
+            const stopOnRoute = selectedRoute?.stops?.find(st => st.site_id === s.id);
+            return (
+              <div key={s.id} style={{ position: "absolute", top: `${s.map_top ?? 50}%`, left: `${s.map_left ?? 50}%`, transform: "translate(-50%, -50%)", zIndex: 5 }}>
+                <div className={`map-pin ${s.status}`} style={{ position: "relative" }}>
+                  {s.id.slice(-2)}
+                  {/* Stop order badge */}
+                  {stopOnRoute && (
+                    <span style={{
+                      position: "absolute", top: -8, right: -8,
+                      background: stopOnRoute.status === "delivered" ? "var(--green)" : "var(--navy)",
+                      color: "white", borderRadius: "50%", width: 16, height: 16,
+                      fontSize: 9, fontWeight: 700, display: "grid", placeItems: "center",
+                      border: "1.5px solid white", boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
+                    }}>
+                      {stopOnRoute.stop_order}
+                    </span>
+                  )}
+                </div>
+                {/* Site label */}
+                <div style={{
+                  position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
+                  marginTop: 3, background: "rgba(255,255,255,0.92)", border: "1px solid var(--border)",
+                  borderRadius: 4, padding: "2px 6px", fontSize: 9, fontWeight: 600,
+                  color: "var(--navy-deep)", whiteSpace: "nowrap", boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+                }}>
+                  {s.name.replace("Shell ", "").replace("7-Eleven ", "").replace(" Wollongong", "")}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Warehouse pin */}
+          <div style={{ position: "absolute", top: "22%", left: "12%", transform: "translate(-50%, -50%)", zIndex: 6 }}>
+            <div className="map-pin truck">W</div>
+            <div style={{
+              position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
+              marginTop: 3, background: "var(--navy-deep)", color: "white",
+              borderRadius: 4, padding: "2px 6px", fontSize: 9, fontWeight: 700,
+              whiteSpace: "nowrap", boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
+            }}>
+              Depot
             </div>
-          ))}
-          <div className="map-pin truck" style={{ top: "22%", left: "12%" }}>W</div>
+          </div>
+
+          {/* Warehouse info overlay */}
           <div style={{ position: "absolute", top: 12, right: 12, background: "white", borderRadius: 6, padding: "8px 12px", border: "1px solid var(--border)", fontSize: 12, boxShadow: "var(--shadow-sm)" }}>
             <div className="small muted">Warehouse</div>
             <div style={{ fontWeight: 600 }}>Wollongong Depot</div>
           </div>
+
+          {/* Route colour legend — bottom left */}
+          {routes.length > 0 && (
+            <div style={{
+              position: "absolute", bottom: 12, left: 12,
+              background: "rgba(255,255,255,0.95)", borderRadius: 8,
+              padding: "8px 12px", border: "1px solid var(--border)",
+              boxShadow: "var(--shadow-sm)", fontSize: 11
+            }}>
+              {routes.map((r, rIdx) => {
+                const colors = ["var(--blue)", "#a259ff", "#14b8a6", "#f59e0b", "#ef4444"];
+                return (
+                  <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: rIdx < routes.length - 1 ? 4 : 0 }}>
+                    <div style={{ width: 24, height: 3, borderRadius: 2, background: colors[rIdx % colors.length], flexShrink: 0, borderTop: r.status === "planned" ? "2px dashed " + colors[rIdx % colors.length] : undefined, background: r.status === "planned" ? "transparent" : colors[rIdx % colors.length] as any }} />
+                    <span style={{ fontWeight: 600, color: "var(--navy-deep)" }}>{r.id}</span>
+                    <span style={{ color: "var(--text-muted)" }}>· {r.driver_name?.split(" ")[0]}</span>
+                    <span className={`chip ${r.status === "active" ? "green" : "blue"}`} style={{ padding: "0 5px", fontSize: 9 }}>{r.status}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {sites.length === 0 && !loading && (
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>
               No sites added yet. Add customer sites to see map pins.

@@ -28,8 +28,29 @@ export const MOCK_VEHICLES = [
 ];
 
 export const MOCK_ROUTES = [
-  { id:"RT-001", driver_id:"D-003", driver_name:"Devon Kim", truck:"T-03", status:"active" as const, stops_total:4, stops_done:2, distance_km:92, duration:"3h 20m", utilisation:88, route_date:new Date().toISOString().split("T")[0], published:1 },
-  { id:"RT-002", driver_id:"D-002", driver_name:"Priya Singh", truck:"T-02", status:"planned" as const, stops_total:3, stops_done:0, distance_km:67, duration:"2h 30m", utilisation:72, route_date:new Date().toISOString().split("T")[0], published:0 },
+  {
+    id:"RT-001", driver_id:"D-003", driver_name:"Devon Kim", truck:"T-03",
+    status:"active" as const, stops_total:4, stops_done:2,
+    distance_km:92, duration:"3h 20m", utilisation:88,
+    route_date:new Date().toISOString().split("T")[0], published:1,
+    stops: [
+      { id:1, route_id:"RT-001", site_id:"S-004", site_name:"7-Eleven Crown St",  stop_order:1, bags:55,  eta:"09:15", status:"delivered" as const, notes:"" },
+      { id:2, route_id:"RT-001", site_id:"S-001", site_name:"Shell Albion Park",   stop_order:2, bags:195, eta:"10:10", status:"delivered" as const, notes:"" },
+      { id:3, route_id:"RT-001", site_id:"S-003", site_name:"BP Dapto",             stop_order:3, bags:120, eta:"11:30", status:"pending"   as const, notes:"" },
+      { id:4, route_id:"RT-001", site_id:"S-002", site_name:"Shell Shellharbour",   stop_order:4, bags:120, eta:"12:45", status:"pending"   as const, notes:"" },
+    ]
+  },
+  {
+    id:"RT-002", driver_id:"D-002", driver_name:"Priya Singh", truck:"T-02",
+    status:"planned" as const, stops_total:3, stops_done:0,
+    distance_km:67, duration:"2h 30m", utilisation:72,
+    route_date:new Date().toISOString().split("T")[0], published:0,
+    stops: [
+      { id:5, route_id:"RT-002", site_id:"S-001", site_name:"Shell Albion Park",  stop_order:1, bags:120, eta:"13:00", status:"pending" as const, notes:"" },
+      { id:6, route_id:"RT-002", site_id:"S-004", site_name:"7-Eleven Crown St",  stop_order:2, bags:40,  eta:"13:45", status:"pending" as const, notes:"" },
+      { id:7, route_id:"RT-002", site_id:"S-003", site_name:"BP Dapto",            stop_order:3, bags:80,  eta:"14:30", status:"pending" as const, notes:"" },
+    ]
+  },
 ];
 
 export const MOCK_PRODUCTS = [
@@ -106,4 +127,98 @@ export const MOCK_TOP_CUSTOMERS = [
 export const MOCK_DRIVER_PERF = [
   { driver_name:"Devon Kim", routes_count:1, stops_done:2, stops_total:4 },
   { driver_name:"Priya Singh", routes_count:1, stops_done:0, stops_total:3 },
+];
+
+export const MOCK_SHIPMENTS = [
+  {
+    id:"SHP-001", customer_id:"C-001", customer_name:"Shell Albion Park",
+    site_id:"S-001", site_name:"Shell Albion Park",
+    product_id:"PRD-001", product_name:"Ice Bag 5kg",
+    quantity:195, pallet_type:"Pallet-195",
+    delivery_date:new Date().toISOString().split("T")[0],
+    time_window:"6am-10pm", priority:"Emergency" as const,
+    assigned_driver_id:"D-003", assigned_driver_name:"Devon Kim",
+    po_number:"PO-4421", special_instructions:"Leave at side entrance if unattended",
+    status:"in-transit" as const, route_id:"RT-001", invoice_id:null,
+    created_at:new Date(Date.now()-3*3600000).toISOString(),
+    updated_at:new Date(Date.now()-30*60000).toISOString(),
+  },
+  {
+    id:"SHP-002", customer_id:"C-001", customer_name:"Shell Albion Park",
+    site_id:"S-002", site_name:"Shell Shellharbour",
+    product_id:"PRD-001", product_name:"Ice Bag 5kg",
+    quantity:120, pallet_type:"Pallet-195",
+    delivery_date:new Date().toISOString().split("T")[0],
+    time_window:"6am-8pm", priority:"Urgent" as const,
+    assigned_driver_id:"D-003", assigned_driver_name:"Devon Kim",
+    po_number:"PO-4422", special_instructions:"",
+    status:"in-transit" as const, route_id:"RT-001", invoice_id:null,
+    created_at:new Date(Date.now()-3*3600000).toISOString(),
+    updated_at:new Date(Date.now()-30*60000).toISOString(),
+  },
+  {
+    id:"SHP-003", customer_id:"C-003", customer_name:"7-Eleven Wollongong",
+    site_id:"S-004", site_name:"7-Eleven Crown St",
+    product_id:"PRD-001", product_name:"Ice Bag 5kg",
+    quantity:55, pallet_type:"Pallet-120",
+    delivery_date:new Date().toISOString().split("T")[0],
+    time_window:"24/7", priority:"Urgent" as const,
+    assigned_driver_id:null, assigned_driver_name:null,
+    po_number:undefined, special_instructions:"Call ahead — site manager required",
+    status:"queued" as const, route_id:null, invoice_id:null,
+    created_at:new Date(Date.now()-2*3600000).toISOString(),
+    updated_at:new Date(Date.now()-2*3600000).toISOString(),
+  },
+  {
+    id:"SHP-004", customer_id:"C-002", customer_name:"BP Dapto",
+    site_id:"S-003", site_name:"BP Dapto",
+    product_id:"PRD-002", product_name:"Ice Bag 10kg",
+    quantity:120, pallet_type:"Pallet-120",
+    delivery_date:new Date().toISOString().split("T")[0],
+    time_window:"24/7", priority:"Normal" as const,
+    assigned_driver_id:"D-002", assigned_driver_name:"Priya Singh",
+    po_number:undefined, special_instructions:"",
+    status:"assigned" as const, route_id:"RT-002", invoice_id:null,
+    created_at:new Date(Date.now()-2.5*3600000).toISOString(),
+    updated_at:new Date(Date.now()-1.5*3600000).toISOString(),
+  },
+  {
+    id:"SHP-005", customer_id:"C-003", customer_name:"7-Eleven Wollongong",
+    site_id:"S-004", site_name:"7-Eleven Crown St",
+    product_id:"PRD-001", product_name:"Ice Bag 5kg",
+    quantity:40, pallet_type:"Pallet-120",
+    delivery_date:new Date().toISOString().split("T")[0],
+    time_window:"24/7", priority:"Normal" as const,
+    assigned_driver_id:null, assigned_driver_name:null,
+    po_number:undefined, special_instructions:"",
+    status:"new" as const, route_id:null, invoice_id:null,
+    created_at:new Date(Date.now()-30*60000).toISOString(),
+    updated_at:new Date(Date.now()-30*60000).toISOString(),
+  },
+  {
+    id:"SHP-006", customer_id:"C-002", customer_name:"BP Dapto",
+    site_id:"S-003", site_name:"BP Dapto",
+    product_id:"PRD-003", product_name:"Crushed Ice 5kg",
+    quantity:80, pallet_type:"Pallet-80",
+    delivery_date:new Date(Date.now()-86400000).toISOString().split("T")[0],
+    time_window:"24/7", priority:"Normal" as const,
+    assigned_driver_id:"D-001", assigned_driver_name:"Luka Martinovic",
+    po_number:undefined, special_instructions:"",
+    status:"delivered" as const, route_id:"RT-003", invoice_id:null,
+    created_at:new Date(Date.now()-27*3600000).toISOString(),
+    updated_at:new Date(Date.now()-16*3600000).toISOString(),
+  },
+  {
+    id:"SHP-007", customer_id:"C-001", customer_name:"Shell Albion Park",
+    site_id:"S-001", site_name:"Shell Albion Park",
+    product_id:"PRD-002", product_name:"Ice Bag 10kg",
+    quantity:240, pallet_type:"Pallet-120",
+    delivery_date:new Date(Date.now()-86400000).toISOString().split("T")[0],
+    time_window:"6am-10pm", priority:"Normal" as const,
+    assigned_driver_id:"D-001", assigned_driver_name:"Luka Martinovic",
+    po_number:"PO-4418", special_instructions:"",
+    status:"invoiced" as const, route_id:"RT-003", invoice_id:"INV-0001",
+    created_at:new Date(Date.now()-28*3600000).toISOString(),
+    updated_at:new Date(Date.now()-14*3600000).toISOString(),
+  },
 ];
